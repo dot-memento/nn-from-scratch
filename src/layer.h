@@ -21,18 +21,15 @@ typedef struct layer {
     backward_function backward;
     activation_pair activation_pair;
 
-    // Weights | Pre-activation sums | Activations | Local gradients | Momentum | Variance
+    double *params;
+    double *preactivation_sums;
+    double *activations;
+    double *local_gradients;
+    double *momentum;
+    double *variance;
+    double *highest_variance;
     double data[];
 } layer;
-
-
-double* get_weights(layer *layer);
-double* get_pre_activation_sums(layer *layer);
-double* get_activations(layer *layer);
-double* get_local_gradient(layer *layer);
-double* get_momentum(layer *layer);
-double* get_variance(layer *layer);
-double* get_highest_variance(layer *layer);
 
 layer* layer_create(size_t input_size, size_t output_size, initialization_function initialization, activation_pair activation);
 void layer_free(layer *layer);

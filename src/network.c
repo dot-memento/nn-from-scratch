@@ -58,7 +58,7 @@ double* network_infer(neural_network *network, double *input)
     {
         layer *current_layer = network->layers[i];
         current_layer->forward(current_layer, input);
-        input = get_activations(current_layer);
+        input = current_layer->activations;
     }
     return input;
 }
@@ -76,12 +76,12 @@ void network_train(neural_network *network, double *inputs, double *expected)
     {
         layer *current_layer = network->layers[i];
         current_layer->forward(current_layer, layer_input);
-        layer_input = get_activations(current_layer);
+        layer_input = current_layer->activations;
     }
 
     // Compute Output Error.
     layer *output_layer = network->layers[network->layer_count - 1];
-    double *output_activations = get_activations(output_layer);
+    double *output_activations = output_layer->activations;
     double *error = malloc(network->largest_layer * sizeof(double));
     for (size_t i = 0; i < output_layer->output_size; ++i)
         error[i] = output_activations[i] - expected[i];
@@ -89,7 +89,7 @@ void network_train(neural_network *network, double *inputs, double *expected)
     // Backward Propagation.
     // Set local gradient for the output layer.
     for (size_t i = 0; i < output_layer->output_size; ++i)
-        get_local_gradient(output_layer)[i] = error[i];
+        output_layer->local_gradients[i] = error[i];
 
     // Propagate error backwards.
     for (size_t i = network->layer_count - 1; i > 0; --i)
@@ -106,7 +106,7 @@ void network_train(neural_network *network, double *inputs, double *expected)
     {
         layer *current_layer = network->layers[i];
         layer_adjust_weights(current_layer, layer_input, network->batch_count);
-        layer_input = get_activations(current_layer);
+        layer_input = current_layer->activations;
     }
 
     free(error);
