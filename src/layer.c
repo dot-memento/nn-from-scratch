@@ -84,7 +84,7 @@ void layer_calculate_local_error(layer *next_layer, double error[])
         {
             double w = next_layer->params[1 + (next_layer->input_size + 1) * j + i];
             double d = next_layer->local_gradients[j];
-            error_sum = fmaf(d, w, error_sum);
+            error_sum = fma(d, w, error_sum);
         }
         error[i] = error_sum;
     }
@@ -95,8 +95,8 @@ static void adjust_parameter(double *param, double *m, double *v, double *max_v_
     *m = ADAMW_BETA_MOMENTUM * *m + (1 - ADAMW_BETA_MOMENTUM) * g;
     *v = ADAMW_BETA_VARIANCE * *v + (1 - ADAMW_BETA_VARIANCE) * g * g;
 
-    double m_hat = *m / (1 - powf(ADAMW_BETA_MOMENTUM, batch_index));
-    double v_hat = *v / (1 - powf(ADAMW_BETA_VARIANCE, batch_index));
+    double m_hat = *m / (1 - pow(ADAMW_BETA_MOMENTUM, batch_index));
+    double v_hat = *v / (1 - pow(ADAMW_BETA_VARIANCE, batch_index));
 
     *max_v_hat = fmax(*max_v_hat, v_hat);
 
