@@ -3,6 +3,7 @@
 
 # Object files
 *.o
+*.do
 *.ko
 *.obj
 *.elf
@@ -50,3 +51,16 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# Compiled source
+.obj/
+bin/
+
+# Python specific
+__pycache__/
+*.pyc
+
+# IDE specific
+.vscode/
+.idea/
+*.swp
