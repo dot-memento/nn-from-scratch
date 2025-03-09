@@ -1,7 +1,7 @@
 #ifndef ACTIVATION_H
 #define ACTIVATION_H
 
-#include <math.h>
+#include <cmath>
 
 typedef struct activation_pair {
     double (*base)(double x);

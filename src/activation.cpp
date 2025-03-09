@@ -1,8 +1,8 @@
-#include "activation.h"
+#include "activation.hpp"
 
-#include <math.h>
+#include <cmath>
 
-#include "hyperparameters.h"
+#include "hyperparameters.hpp"
 
 double identity(double x)
 {
