@@ -25,11 +25,11 @@ typedef struct batch_buffer {
 } batch_buffer;
 
 batch_buffer* batch_buffer_create(neural_network *network);
-void batch_buffer_free(batch_buffer *fragment);
+void batch_buffer_free(batch_buffer *buffer);
 
-void batch_buffer_forward(batch_buffer *fragment, double *input);
-void batch_buffer_backpropagate(batch_buffer *fragment);
+void batch_buffer_forward(batch_buffer *buffer, double *input);
+void batch_buffer_backpropagate(batch_buffer *buffer);
 void batch_buffer_merge(batch_buffer *buffers[], size_t buffer_count);
-void batch_buffer_update_params(batch_buffer *fragment, size_t batch_index);
+void batch_buffer_update_params(batch_buffer *buffer, size_t batch_index);
 
 #endif // BATCH_BUFFER_H

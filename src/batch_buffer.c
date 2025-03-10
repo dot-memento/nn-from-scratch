@@ -26,20 +26,20 @@ batch_buffer* batch_buffer_create(neural_network *network)
     return fragment;
 }
 
-void batch_buffer_free(batch_buffer *fragment)
+void batch_buffer_free(batch_buffer *buffer)
 {
-    for (size_t layer_idx = 0; layer_idx < fragment->network->layer_count; ++layer_idx)
-        free(fragment->layers[layer_idx]);
-    free(fragment);
+    for (size_t layer_idx = 0; layer_idx < buffer->network->layer_count; ++layer_idx)
+        free(buffer->layers[layer_idx]);
+    free(buffer);
 }
 
-void batch_buffer_forward(batch_buffer *fragment, double *input)
+void batch_buffer_forward(batch_buffer *buffer, double *input)
 {
-    neural_network *network = fragment->network;
+    neural_network *network = buffer->network;
     for (size_t layer_idx = 0; layer_idx < network->layer_count; ++layer_idx)
     {
         layer *layer = network->layers[layer_idx];
-        struct batch_buffer_layer_data *layer_data = fragment->layers[layer_idx];
+        struct batch_buffer_layer_data *layer_data = buffer->layers[layer_idx];
         layer_data->input = input;
         for (size_t neuron = 0; neuron < layer->output_size; ++neuron)
         {
@@ -54,15 +54,15 @@ void batch_buffer_forward(batch_buffer *fragment, double *input)
     }
 }
 
-void batch_buffer_backpropagate(batch_buffer *fragment)
+void batch_buffer_backpropagate(batch_buffer *buffer)
 {
-    neural_network *network = fragment->network;
+    neural_network *network = buffer->network;
     for (size_t layer_idx = network->layer_count - 1; layer_idx > 0; --layer_idx)
     {
         layer *next_layer = network->layers[layer_idx];
         layer *this_layer = network->layers[layer_idx - 1];
-        struct batch_buffer_layer_data *next_layer_data = fragment->layers[layer_idx];
-        struct batch_buffer_layer_data *this_layer_data = fragment->layers[layer_idx - 1];
+        struct batch_buffer_layer_data *next_layer_data = buffer->layers[layer_idx];
+        struct batch_buffer_layer_data *this_layer_data = buffer->layers[layer_idx - 1];
 
         for (size_t neuron = 0; neuron < this_layer->output_size; ++neuron)
         {
@@ -142,9 +142,9 @@ static void layer_adjust_weights(struct batch_buffer_layer_data *this_layer_data
     }
 }
 
-void batch_buffer_update_params(batch_buffer *fragment, size_t batch_index)
+void batch_buffer_update_params(batch_buffer *buffer, size_t batch_index)
 {
-    neural_network *network = fragment->network;
+    neural_network *network = buffer->network;
     for (size_t layer_idx = 0; layer_idx < network->layer_count; ++layer_idx)
-        layer_adjust_weights(fragment->layers[layer_idx], batch_index);
+        layer_adjust_weights(buffer->layers[layer_idx], batch_index);
 }

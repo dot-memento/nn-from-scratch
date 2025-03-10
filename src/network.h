@@ -7,8 +7,9 @@
 #include "initialization.h"
 #include "activation.h"
 
-
 typedef struct layer layer;
+typedef struct dataset dataset;
+typedef struct loss_function loss_function;
 
 typedef struct network_layout {
     size_t input_size;
@@ -29,11 +30,11 @@ typedef struct neural_network {
 
 
 neural_network* network_create(network_layout *layout);
-void network_free(neural_network *nn);
+void network_free(neural_network *network);
 
-neural_network* network_initialize(neural_network *nn);
+neural_network* network_initialize(neural_network *network);
 
 void network_infer(neural_network *network, double *input, double *output);
-void network_train(neural_network *nn, double *input, double *expected);
+void network_train(neural_network *network, const loss_function *loss, dataset *ds, size_t epoch_count, size_t batch_size);
 
 #endif // NETWORK_H

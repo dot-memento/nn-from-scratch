@@ -3,99 +3,66 @@
 #include <stdlib.h>
 #include <math.h>
 
-#include "math_utils.h"
 #include "network.h"
+#include "dataset.h"
 #include "loss.h"
 
 #define MAX_EPOCH 2500
 #define DATASET_ENTRIES 256
 #define INPUT_SIZE 8
 
-typedef struct dataset_entry {
-    double input[INPUT_SIZE];
-    double output[INPUT_SIZE];
-} dataset_entry;
-
-static dataset_entry dataset[DATASET_ENTRIES];
-
-void generate_dataset()
+dataset* dataset_create()
 {
+    dataset *new_dataset = malloc(sizeof(dataset) + DATASET_ENTRIES * (2 * INPUT_SIZE) * sizeof(double));
+    new_dataset->entry_count = DATASET_ENTRIES;
+    new_dataset->input_size = INPUT_SIZE;
+    new_dataset->output_size = INPUT_SIZE;
+    new_dataset->entry_size = new_dataset->input_size + new_dataset->output_size;
     for (size_t i = 0; i < DATASET_ENTRIES; ++i)
     {
+        double *entry_input = new_dataset->data + new_dataset->entry_size * i;
+        double *entry_output = entry_input + new_dataset->input_size;
         for (size_t j = 0; j < INPUT_SIZE; ++j)
         {
             double bit = (i >> j) & 1;
-            dataset[i].input[j] = bit;
-            dataset[i].output[j] = bit;
+            entry_input[j] = bit ? 1.0 : -1.0;
+            entry_output[j] = bit;
         }
     }
+    return new_dataset;
 }
 
-void train_network(neural_network *network)
+void dataset_free(dataset *data)
 {
-    size_t dataset_size = DATASET_ENTRIES;
-    for (size_t epoch_count = 0; epoch_count < MAX_EPOCH; ++epoch_count)
-    {
-        // Shuffle dataset at the beginning of each epoch.
-        shuffle(dataset, dataset_size, sizeof(dataset_entry));
-    
-        double total_loss = 0;
-        double total_accuracy = 0;
-    
-        // === Inference and loss/accuracy calculation ===
-        for (size_t j = 0; j < dataset_size; ++j)
-        {
-            double result[INPUT_SIZE];
-            network_infer(network, dataset[j].input, result);
-            total_loss += loss_bce.compute_loss(result, dataset[j].output, INPUT_SIZE);
-    
-            int correct_bits = 0;
-            for (size_t i = 0; i < INPUT_SIZE; ++i)
-            {
-                if (round(result[i]) == dataset[j].output[i])
-                    correct_bits++;
-            }
-            if (correct_bits == INPUT_SIZE)
-                total_accuracy++;
-        }
-    
-        double avg_loss = total_loss / dataset_size;
-        double accuracy = total_accuracy / dataset_size;
-        printf("%zu,%f,%f\n", epoch_count, avg_loss, accuracy);
-    
-        // === Update network with each dataset entry ===
-        for (size_t j = 0; j < dataset_size; ++j)
-            network_train(network, dataset[j].input, dataset[j].output);
-    }
+    free(data);
 }
 
 int main(int argc, char *argv[])
 {
-    generate_dataset();
+    dataset *data = dataset_create();
     
     unsigned int seed = (unsigned int)time(NULL);
     srand(seed);
     fprintf(stderr, "Using seed: %u\n", seed);
     
     network_layout layout = {
-        .input_size = INPUT_SIZE,
+        .input_size = data->input_size,
         .layer_count = 4,
         .layers = (struct layer_layout[]) {
             {8,             initialization_xavier,  activation_tanh},
             {5,             initialization_xavier,  activation_tanh},
             {8,             initialization_xavier,  activation_tanh},
-            {INPUT_SIZE,    initialization_xavier,  activation_sigmoid}
+            {data->output_size,    initialization_xavier,  activation_sigmoid}
         }
     };
 
     neural_network *network = network_create(&layout);
-
     network_initialize(network);
     
-    printf("epoch,loss,accuracy\n");
-    train_network(network);
+    network_train(network, &loss_bce, data, MAX_EPOCH, 8);
     
     network_free(network);
+    dataset_free(data);
     
     return 0;
 }
