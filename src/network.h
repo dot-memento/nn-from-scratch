@@ -22,7 +22,6 @@ typedef struct network_layout {
 
 typedef struct neural_network {
     size_t input_size;
-    size_t largest_layer;
     size_t batch_count;
     size_t layer_count;
     layer *layers[];
@@ -34,7 +33,7 @@ void network_free(neural_network *nn);
 
 neural_network* network_initialize(neural_network *nn);
 
-double* network_infer(neural_network *nn, double *input);
-void network_train(neural_network *nn, double *inputs, double *expected);
+void network_infer(neural_network *network, double *input, double *output);
+void network_train(neural_network *nn, double *input, double *expected);
 
 #endif // NETWORK_H

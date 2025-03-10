@@ -2,15 +2,17 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "layer.h"
+#include "loss.h"
+#include "batch_buffer.h"
 
 neural_network* network_create(network_layout *layout)
 {
     // Allocate memory for the network and initialize parameters.
     neural_network *network = malloc(sizeof(neural_network) + layout->layer_count * sizeof(layer*));
     network->input_size = layout->input_size;
-    network->largest_layer = 0;
     network->layer_count = layout->layer_count;
     network->batch_count = 0;
 
@@ -23,10 +25,6 @@ neural_network* network_create(network_layout *layout)
             layout->layers[i].initialization_function,
             layout->layers[i].activation_pair
         );
-
-        // Update largest_layer if needed.
-        if (network->largest_layer < layout->layers[i].neuron_count)
-            network->largest_layer = layout->layers[i].neuron_count;
     }
 
     return network;
@@ -51,63 +49,37 @@ neural_network* network_initialize(neural_network *network)
     return network;
 }
 
-double* network_infer(neural_network *network, double *input)
+void network_infer(neural_network *network, double *input, double *output)
 {
-    // Forward propagate through layers.
-    for (size_t i = 0; i < network->layer_count; ++i)
-    {
-        layer *current_layer = network->layers[i];
-        current_layer->forward(current_layer, input);
-        input = current_layer->activations;
-    }
-    return input;
+    batch_buffer *buffer = batch_buffer_create(network);
+    batch_buffer_forward(buffer, input);
+    memcpy(output, buffer->layers[network->layer_count - 1]->activations, network->layers[network->layer_count - 1]->output_size * sizeof(double));
+    batch_buffer_free(buffer);
 }
 
-void network_train(neural_network *network, double *inputs, double *expected)
+void network_train(neural_network *network, double *input, double *expected)
 {
     if (network->layer_count == 0)
         return;
 
     network->batch_count++;
 
+    batch_buffer *buffer = batch_buffer_create(network);
+
     // Forward Propagation: propagate input and save activations.
-    double *layer_input = inputs;
-    for (size_t i = 0; i < network->layer_count; ++i)
-    {
-        layer *current_layer = network->layers[i];
-        current_layer->forward(current_layer, layer_input);
-        layer_input = current_layer->activations;
-    }
+    batch_buffer_forward(buffer, input);
 
-    // Compute Output Error.
-    layer *output_layer = network->layers[network->layer_count - 1];
-    double *output_activations = output_layer->activations;
-    double *error = malloc(network->largest_layer * sizeof(double));
-    for (size_t i = 0; i < output_layer->output_size; ++i)
-        error[i] = output_activations[i] - expected[i];
-
+    // Calculate output gradient.
+    struct batch_buffer_layer_data *output_layer_data = buffer->layers[network->layer_count - 1];
+    loss_bce.compute_output_gradient(output_layer_data, expected);
+    
     // Backward Propagation.
-    // Set local gradient for the output layer.
-    for (size_t i = 0; i < output_layer->output_size; ++i)
-        output_layer->local_gradients[i] = error[i];
+    batch_buffer_backpropagate(buffer);
 
-    // Propagate error backwards.
-    for (size_t i = network->layer_count - 1; i > 0; --i)
-    {
-        layer *current_layer = network->layers[i];
-        layer *prev_layer = network->layers[i - 1];
-        layer_calculate_local_error(current_layer, error);
-        prev_layer->backward(prev_layer, error);
-    }
+    batch_buffer_merge(&buffer, 1);
 
     // Weight Update: adjust weights for each layer.
-    layer_input = inputs;
-    for (size_t i = 0; i < network->layer_count; ++i)
-    {
-        layer *current_layer = network->layers[i];
-        layer_adjust_weights(current_layer, layer_input, network->batch_count);
-        layer_input = current_layer->activations;
-    }
+    batch_buffer_update_params(buffer, network->batch_count);
 
-    free(error);
+    batch_buffer_free(buffer);
 }

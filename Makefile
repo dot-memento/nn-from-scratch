@@ -9,7 +9,7 @@ OUTPUT = LeCNN
 # compilateur utilisé
 CC = gcc
 # options de compilation pour la version de production
-PRODFLAGS = -O3 -flto -std=c11 -Wall -pedantic
+PRODFLAGS = -Ofast -flto -std=c11 -Wall -pedantic
 # options de compilation pour la version de debug
 DEBUGFLAGS = -g -std=c11 -Wall -pedantic
 

@@ -7,20 +7,12 @@
 
 #include "hyperparameters.h"
 
-double binary_cross_entropy(const double predicted[], const double expected[], size_t size)
-{
-    double sum = 0;
-    for (size_t i = 0; i < size; ++i)
-        sum -= expected[i] * log(predicted[i] + FLT_MIN) + (1 - expected[i]) * log(1 - predicted[i] + FLT_MIN);
-    return sum;
-}
-
 double rand_double()
 {
     return (double)rand() / RAND_MAX;
 }
 
-double rand_double_in_range(float a, float b)
+double rand_double_in_range(double a, double b)
 {
     return a + (b - a) * rand_double();
 }

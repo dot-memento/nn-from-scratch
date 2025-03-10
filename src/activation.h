@@ -8,23 +8,6 @@ typedef struct activation_pair {
     double (*derivative)(double x);
 } activation_pair;
 
-double identity(double x);
-double identity_derivative(double x);
-
-double sigmoid(double x);
-double sigmoid_derivative(double x);
-
-double tanh_derivative(double x);
-
-double relu(double x);
-double relu_derivative(double x);
-
-double leaky_relu(double x);
-double leaky_relu_derivative(double x);
-
-double swish(double x);
-double swish_derivative(double x);
-
 extern const activation_pair activation_linear;
 extern const activation_pair activation_sigmoid;
 extern const activation_pair activation_tanh;
