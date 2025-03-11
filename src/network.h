@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 #include "initialization.h"
 #include "activation.h"
@@ -23,11 +24,10 @@ typedef struct network_layout {
 
 typedef struct neural_network {
     size_t input_size;
-    size_t batch_count;
     size_t layer_count;
+    const loss_function *loss;
     layer *layers[];
 } neural_network;
-
 
 neural_network* network_create(network_layout *layout);
 void network_free(neural_network *network);
@@ -35,6 +35,14 @@ void network_free(neural_network *network);
 neural_network* network_initialize(neural_network *network);
 
 void network_infer(neural_network *network, double *input, double *output);
-void network_train(neural_network *network, const loss_function *loss, dataset *ds, size_t epoch_count, size_t batch_size);
+
+typedef struct training_options {
+    size_t epoch_count;
+    size_t batch_size;
+    FILE *loss_output;
+    FILE *final_output;
+} training_options;
+
+void network_train(neural_network *network, dataset *ds, training_options options);
 
 #endif // NETWORK_H

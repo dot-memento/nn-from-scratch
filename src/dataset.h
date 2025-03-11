@@ -8,7 +8,7 @@ typedef struct dataset {
     size_t entry_size;
     size_t input_size;
     size_t output_size;
-    double data[];
+    double *data;
 } dataset;
 
 #endif // DATASET_H

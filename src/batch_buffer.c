@@ -13,14 +13,29 @@ batch_buffer* batch_buffer_create(neural_network *network)
     for (size_t i = 0; i < network->layer_count; ++i)
     {
         layer *current_layer = network->layers[i];
+        size_t input_size = current_layer->input_size;
+        size_t output_size = current_layer->output_size;
+
+        size_t data_block_size = output_size // Preactivation sums
+            + output_size // Activations
+            + output_size // Local gradient | Bias gradients
+            + output_size * input_size; // Weight gradients
         struct batch_buffer_layer_data *layer_data = malloc(sizeof(struct batch_buffer_layer_data)
-            + 3 * current_layer->output_size * sizeof(double)
-            + current_layer->input_size * current_layer->output_size * sizeof(double));
-        layer_data->parent = current_layer;
-        layer_data->preactivation_sums = layer_data->data;
-        layer_data->activations = layer_data->preactivation_sums + current_layer->output_size;
-        layer_data->local_gradients = layer_data->activations + current_layer->output_size;
-        layer_data->grad_W = layer_data->local_gradients + current_layer->output_size;
+            + data_block_size * sizeof(double));
+        
+        double *preactivation_sums = layer_data->data;
+        double *activations        = preactivation_sums + output_size;
+        double *local_gradients    = activations        + output_size;
+        double *grad_W             = local_gradients    + output_size;
+
+        *layer_data = (struct batch_buffer_layer_data) {
+            .parent = current_layer,
+            .preactivation_sums = preactivation_sums,
+            .activations = activations,
+            .local_gradients = local_gradients,
+            .grad_W = grad_W
+        };
+        
         fragment->layers[i] = layer_data;
     }
     return fragment;

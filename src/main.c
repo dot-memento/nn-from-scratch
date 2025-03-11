@@ -6,63 +6,72 @@
 #include "network.h"
 #include "dataset.h"
 #include "loss.h"
-
-#define MAX_EPOCH 2500
-#define DATASET_ENTRIES 256
-#define INPUT_SIZE 8
+#include "math_utils.h"
 
 dataset* dataset_create()
 {
-    dataset *new_dataset = malloc(sizeof(dataset) + DATASET_ENTRIES * (2 * INPUT_SIZE) * sizeof(double));
-    new_dataset->entry_count = DATASET_ENTRIES;
-    new_dataset->input_size = INPUT_SIZE;
-    new_dataset->output_size = INPUT_SIZE;
-    new_dataset->entry_size = new_dataset->input_size + new_dataset->output_size;
-    for (size_t i = 0; i < DATASET_ENTRIES; ++i)
+    dataset *ds = malloc(sizeof(dataset));
+    ds->entry_count = 512;
+    ds->input_size = 1;
+    ds->output_size = 1;
+    ds->data = malloc(ds->entry_count * (ds->input_size + ds->output_size) * sizeof(double));
+    ds->entry_size = ds->input_size + ds->output_size;
+    for (size_t i = 0; i < ds->entry_count; ++i)
     {
-        double *entry_input = new_dataset->data + new_dataset->entry_size * i;
-        double *entry_output = entry_input + new_dataset->input_size;
-        for (size_t j = 0; j < INPUT_SIZE; ++j)
-        {
-            double bit = (i >> j) & 1;
-            entry_input[j] = bit ? 1.0 : -1.0;
-            entry_output[j] = bit;
-        }
+        double *entry_input = ds->data + ds->entry_size * i;
+        double *entry_output = entry_input + ds->input_size;
+        *entry_input = rand_double_in_range(-1, 1);
+        *entry_output = 3 * (*entry_input) * exp(-9 * (*entry_input) * (*entry_input)) + sample_gaussian_distribution(0, 0.1);
     }
-    return new_dataset;
+    return ds;
 }
 
-void dataset_free(dataset *data)
+void dataset_free(dataset *ds)
 {
-    free(data);
+    free(ds->data);
+    free(ds);
 }
 
 int main(int argc, char *argv[])
 {
-    dataset *data = dataset_create();
-    
     unsigned int seed = (unsigned int)time(NULL);
     srand(seed);
     fprintf(stderr, "Using seed: %u\n", seed);
+
+    dataset *ds = dataset_create();
     
     network_layout layout = {
-        .input_size = data->input_size,
+        .input_size = ds->input_size,
         .layer_count = 4,
         .layers = (struct layer_layout[]) {
-            {8,             initialization_xavier,  activation_tanh},
-            {5,             initialization_xavier,  activation_tanh},
-            {8,             initialization_xavier,  activation_tanh},
-            {data->output_size,    initialization_xavier,  activation_sigmoid}
+            {16,                initialization_he,  activation_swish},
+            {16,                initialization_he,  activation_swish},
+            {8,                 initialization_he,  activation_swish},
+            {ds->output_size,   initialization_xavier,  activation_linear}
         }
     };
 
     neural_network *network = network_create(&layout);
+    network->loss = &loss_mse;
     network_initialize(network);
-    
-    network_train(network, &loss_bce, data, MAX_EPOCH, 8);
-    
+
+    FILE *loss = fopen("loss.csv", "w");
+    FILE *final_output = fopen("scatter.csv", "w");
+
+    training_options options = {
+        .epoch_count = 100,
+        .batch_size = 8,
+        .loss_output = loss,
+        .final_output = final_output
+    };
+
+    network_train(network, ds, options);
+
+    fclose(loss);
+    fclose(final_output);
+
     network_free(network);
-    dataset_free(data);
+    dataset_free(ds);
     
     return 0;
 }

@@ -14,9 +14,10 @@ neural_network* network_create(network_layout *layout)
 {
     // Allocate memory for the network and initialize parameters.
     neural_network *network = malloc(sizeof(neural_network) + layout->layer_count * sizeof(layer*));
-    network->input_size = layout->input_size;
-    network->layer_count = layout->layer_count;
-    network->batch_count = 0;
+    *network = (neural_network) {
+        .input_size = layout->input_size,
+        .layer_count = layout->layer_count
+    };
 
     // Create and add layers using the layout.
     for (size_t i = 0; i < layout->layer_count; ++i)
@@ -59,10 +60,12 @@ void network_infer(neural_network *network, double *input, double *output)
     batch_buffer_free(buffer);
 }
 
-static void print_epoch_stats(neural_network *network, dataset *ds, size_t epoch_count)
+static void fprint_epoch_stats(FILE *file, neural_network *network, dataset *ds, size_t epoch_count)
 {
+    if (file == NULL)
+        return;
+
     double total_loss = 0;
-    double total_accuracy = 0;
 
     double *result = malloc(ds->output_size * sizeof(double));
     for (size_t entry_idx = 0; entry_idx < ds->entry_count; ++entry_idx)
@@ -71,54 +74,69 @@ static void print_epoch_stats(neural_network *network, dataset *ds, size_t epoch
         double *entry_output = entry_input + ds->input_size;
 
         network_infer(network, entry_input, result);
-        total_loss += loss_bce.compute_loss(result, entry_output, ds->output_size);
-
-        int correct_bits = 0;
-        for (size_t i = 0; i < ds->output_size; ++i)
-        {
-            if (round(result[i]) == entry_output[i])
-                correct_bits++;
-        }
-        if (correct_bits == ds->output_size)
-            total_accuracy++;
+        total_loss += network->loss->compute_loss(result, entry_output, ds->output_size);
     }
     free(result);
 
     double avg_loss = total_loss / ds->entry_count;
-    double accuracy = total_accuracy / ds->entry_count;
-    printf("%zu,%f,%f\n", epoch_count, avg_loss, accuracy);
+    fprintf(file, "%zu,%f\n", epoch_count, avg_loss);
 }
 
-void network_train(neural_network *network, const loss_function *loss, dataset *ds, size_t epoch_count, size_t batch_size)
+static void split_dataset(const dataset *ds, dataset *training_ds, dataset *validation_ds, double split_ratio)
+{
+    *training_ds = (dataset) {
+        .entry_count = ds->entry_count * split_ratio,
+        .entry_size = ds->entry_size,
+        .input_size = ds->input_size,
+        .output_size = ds->output_size,
+        .data = ds->data
+    };
+
+    *validation_ds = (dataset) {
+        .entry_count = ds->entry_count - training_ds->entry_count,
+        .entry_size = ds->entry_size,
+        .input_size = ds->input_size,
+        .output_size = ds->output_size,
+        .data = ds->data + training_ds->entry_count * ds->entry_size
+    };
+}
+
+void network_train(neural_network *network, dataset *ds, training_options options)
 {
     if (network->layer_count == 0)
         return;
     
+    size_t batch_size = options.batch_size;
     batch_buffer **buffers = malloc(sizeof(batch_buffer*) * batch_size);
-    for (size_t i = 0; i < batch_size; ++i)
-        buffers[i] = batch_buffer_create(network);
+    for (size_t buffer_idx = 0; buffer_idx < batch_size; ++buffer_idx)
+        buffers[buffer_idx] = batch_buffer_create(network);
 
     size_t update_counter = 1;
 
-    printf("epoch,loss,accuracy\n");
-    for (size_t epoch_idx = 0; epoch_idx < epoch_count; ++epoch_idx)
+    dataset *training_ds = malloc(sizeof(dataset));
+    dataset *validation_ds = malloc(sizeof(dataset));
+    split_dataset(ds, training_ds, validation_ds, 0.8);
+
+    if (options.loss_output != NULL)
+        fputs("epoch,loss,accuracy\n", options.loss_output);
+    for (size_t epoch_idx = 0; epoch_idx < options.epoch_count; ++epoch_idx)
     {
-        print_epoch_stats(network, ds, epoch_idx);
+        fprint_epoch_stats(options.loss_output, network, validation_ds, epoch_idx);
         
-        shuffle(ds->data, ds->entry_count, ds->entry_size * sizeof(double));
-        for (size_t entry_idx = 0; entry_idx + batch_size <= ds->entry_count;)
+        shuffle(training_ds->data, training_ds->entry_count, training_ds->entry_size * sizeof(double));
+        for (size_t entry_idx = 0; entry_idx + batch_size <= training_ds->entry_count;)
         {
             
-            for (size_t i = 0; i < batch_size; ++i, ++entry_idx)
+            for (size_t buffer_idx = 0; buffer_idx < batch_size; ++buffer_idx, ++entry_idx)
             {
-                double *entry_input = ds->data + ds->entry_size * entry_idx;
-                double *entry_output = entry_input + ds->input_size;
+                double *entry_input = training_ds->data + training_ds->entry_size * entry_idx;
+                double *entry_output = entry_input + training_ds->input_size;
 
-                batch_buffer *buffer = buffers[i];
+                batch_buffer *buffer = buffers[buffer_idx];
                 batch_buffer_forward(buffer, entry_input);
 
                 struct batch_buffer_layer_data *output_layer_data = buffer->layers[network->layer_count - 1];
-                loss->compute_output_gradient(output_layer_data, entry_output);
+                network->loss->compute_output_gradient(output_layer_data, entry_output);
                 
                 batch_buffer_backpropagate(buffer);
             }
@@ -128,9 +146,25 @@ void network_train(neural_network *network, const loss_function *loss, dataset *
             batch_buffer_update_params(buffers[0], update_counter++);
         }
     }
-    print_epoch_stats(network, ds, epoch_count);
+    fprint_epoch_stats(options.loss_output, network, validation_ds, options.epoch_count);
 
-    for (size_t i = 0; i < batch_size; ++i)
-        batch_buffer_free(buffers[i]);
+    for (size_t buffer_idx = 0; buffer_idx < batch_size; ++buffer_idx)
+        batch_buffer_free(buffers[buffer_idx]);
     free(buffers);
+
+    if (options.final_output != NULL)
+    {
+        fputs("input,expected,predicted\n", options.final_output);
+        for (size_t entry_idx = 0; entry_idx < validation_ds->entry_count; ++entry_idx)
+        {
+            double *entry_input = validation_ds->data + validation_ds->entry_size * entry_idx;
+            double *entry_output = entry_input + validation_ds->input_size;
+            double output;
+            network_infer(network, entry_input, &output);
+            fprintf(options.final_output, "%f,%f,%f\n", *entry_input, *entry_output, output);
+        }
+    }
+
+    free(training_ds);
+    free(validation_ds);
 }
