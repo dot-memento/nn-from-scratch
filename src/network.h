@@ -14,7 +14,6 @@ typedef struct loss_function loss_function;
 
 typedef struct network_layout {
     size_t input_size;
-    size_t layer_count;
     struct layer_layout {
         size_t neuron_count;
         initialization_function initialization_function;

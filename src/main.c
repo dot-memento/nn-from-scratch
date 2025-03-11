@@ -42,12 +42,12 @@ int main(int argc, char *argv[])
     
     network_layout layout = {
         .input_size = ds->input_size,
-        .layer_count = 4,
         .layers = (struct layer_layout[]) {
             {16,                initialization_he,  activation_swish},
             {16,                initialization_he,  activation_swish},
             {8,                 initialization_he,  activation_swish},
-            {ds->output_size,   initialization_xavier,  activation_linear}
+            {ds->output_size,   initialization_xavier,  activation_linear},
+            {0}
         }
     };
 

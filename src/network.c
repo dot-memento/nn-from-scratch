@@ -12,15 +12,19 @@
 
 neural_network* network_create(network_layout *layout)
 {
+    size_t layer_count = 0;
+    while (layout->layers[layer_count].neuron_count)
+        layer_count++;
+
     // Allocate memory for the network and initialize parameters.
-    neural_network *network = malloc(sizeof(neural_network) + layout->layer_count * sizeof(layer*));
+    neural_network *network = malloc(sizeof(neural_network) + layer_count * sizeof(layer*));
     *network = (neural_network) {
         .input_size = layout->input_size,
-        .layer_count = layout->layer_count
+        .layer_count = layer_count
     };
 
     // Create and add layers using the layout.
-    for (size_t i = 0; i < layout->layer_count; ++i)
+    for (size_t i = 0; i < layer_count; ++i)
     {
         network->layers[i] = layer_create(
             (i > 0) ? network->layers[i-1]->output_size : network->input_size,
