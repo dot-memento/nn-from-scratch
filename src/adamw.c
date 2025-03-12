@@ -2,6 +2,7 @@
 
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "layer.h"
 #include "network.h"
@@ -24,6 +25,7 @@ adamw* adamw_create(size_t size, double alpha, double beta1, double beta2, doubl
         .v = optimizer->data + size,
         .v_hat = optimizer->data + 2 * size
     };
+    memset(optimizer->data, 0, 2 * size * sizeof(double));
 
     return optimizer;
 }

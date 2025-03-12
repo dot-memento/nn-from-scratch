@@ -11,11 +11,7 @@ static double binary_cross_entropy(const double predicted[], const double expect
     double sum = 0;
     for (size_t i = 0; i < size; ++i)
     {
-        double p = predicted[i];
-        if (p < DBL_MIN)
-            p = DBL_MIN;
-        else if (1 - DBL_EPSILON < p)
-            p = 1 - DBL_EPSILON;
+        double p = fmin(fmax(DBL_MIN, predicted[i]), 1 - DBL_EPSILON);
         sum -= expected[i] * log(p) + (1 - expected[i]) * log(1 - p);
     }
     return sum;

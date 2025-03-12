@@ -39,7 +39,7 @@ static void memswap(void *a, void *b, size_t num)
 
 void shuffle(void *array, size_t count, size_t element_size)
 {
-    uint8_t *char_array = array;
+    uint_fast8_t *char_array = array;
     for (size_t i = count; i > 1; --i)
     {
         int j = rand() % i;
