@@ -17,9 +17,8 @@ static double binary_cross_entropy(const double predicted[], const double expect
     return sum;
 }
 
-static void output_gradient_bce(batch_buffer_layer_data *output_layer_data, const double y_true[])
+static void output_gradient_bce(const layer *output_layer, batch_buffer_layer_data *output_layer_data, const double y_true[])
 {
-    const layer *output_layer = output_layer_data->parent;
     for (size_t i = 0; i < output_layer->output_size; ++i)
     {
         double y_pred = output_layer_data->activations[i];
@@ -34,9 +33,8 @@ const loss_function loss_bce = {
     .compute_output_gradient = output_gradient_bce
 };
 
-static void output_gradient_bce_sigmoid(batch_buffer_layer_data *output_layer_data, const double y_true[])
+static void output_gradient_bce_sigmoid(const layer *output_layer, batch_buffer_layer_data *output_layer_data, const double y_true[])
 {
-    const layer *output_layer = output_layer_data->parent;
     for (size_t i = 0; i < output_layer->output_size; ++i)
     {
         double y_pred = output_layer_data->activations[i];
@@ -60,9 +58,8 @@ static double mean_squared_error(const double predicted[], const double expected
     return sum / size;
 }
 
-static void output_gradient_mse(batch_buffer_layer_data *output_layer_data, const double y_true[])
+static void output_gradient_mse(const layer *output_layer, batch_buffer_layer_data *output_layer_data, const double y_true[])
 {
-    const layer *output_layer = output_layer_data->parent;
     for (size_t i = 0; i < output_layer->output_size; ++i)
     {
         double y_pred = output_layer_data->activations[i];

@@ -64,7 +64,7 @@ neural_network* network_initialize(neural_network *network)
 void network_infer(neural_network *network, double *input, double *output)
 {
     batch_buffer *buffer = batch_buffer_create(network);
-    batch_buffer_forward(buffer, input);
+    batch_buffer_forward(network, buffer, input);
     memcpy(output, buffer->layers[network->layer_count - 1]->activations, network->layers[network->layer_count - 1]->output_size * sizeof(double));
     batch_buffer_free(buffer);
 }
@@ -104,25 +104,6 @@ static void fprint_network_output(FILE *file, neural_network *network, dataset *
     }
 }
 
-static void split_dataset(const dataset *ds, dataset *training_ds, dataset *validation_ds, double split_ratio)
-{
-    *training_ds = (dataset) {
-        .entry_count = ds->entry_count * split_ratio,
-        .entry_size = ds->entry_size,
-        .input_size = ds->input_size,
-        .output_size = ds->output_size,
-        .data = ds->data
-    };
-
-    *validation_ds = (dataset) {
-        .entry_count = ds->entry_count - training_ds->entry_count,
-        .entry_size = ds->entry_size,
-        .input_size = ds->input_size,
-        .output_size = ds->output_size,
-        .data = ds->data + training_ds->entry_count * ds->entry_size
-    };
-}
-
 void network_train(neural_network *network, adamw *optimizer, dataset *ds, const training_options *options)
 {
     if (network->layer_count == 0)
@@ -135,7 +116,7 @@ void network_train(neural_network *network, adamw *optimizer, dataset *ds, const
 
     dataset training_ds;
     dataset validation_ds;
-    split_dataset(ds, &training_ds, &validation_ds, 0.8);
+    dataset_split(ds, &training_ds, &validation_ds, 0.8);
 
     if (options->loss_output != NULL)
         fputs("epoch,loss,accuracy\n", options->loss_output);
@@ -146,24 +127,25 @@ void network_train(neural_network *network, adamw *optimizer, dataset *ds, const
         shuffle(training_ds.data, training_ds.entry_count, training_ds.entry_size * sizeof(double));
         for (size_t entry_idx = 0; entry_idx + batch_size <= training_ds.entry_count;)
         {
-            
             for (size_t buffer_idx = 0; buffer_idx < batch_size; ++buffer_idx, ++entry_idx)
             {
                 double *entry_input = training_ds.data + training_ds.entry_size * entry_idx;
                 double *entry_output = entry_input + training_ds.input_size;
 
                 batch_buffer *buffer = buffers[buffer_idx];
-                batch_buffer_forward(buffer, entry_input);
+                batch_buffer_forward(network, buffer, entry_input);
 
-                struct batch_buffer_layer_data *output_layer_data = buffer->layers[network->layer_count - 1];
-                network->loss->compute_output_gradient(output_layer_data, entry_output);
+                size_t ouput_layer_idx = network->layer_count - 1;
+                struct batch_buffer_layer_data *output_layer_data = buffer->layers[ouput_layer_idx];
+                const layer *output_layer = network->layers[ouput_layer_idx];
+                network->loss->compute_output_gradient(output_layer, output_layer_data, entry_output);
                 
-                batch_buffer_backpropagate(buffer);
+                batch_buffer_backpropagate(network, buffer);
             }
 
-            batch_buffer_merge(buffers, batch_size);
+            adamw_merge_batch(optimizer, buffers, batch_size);
 
-            adamw_update_params(optimizer, network, buffers[0]);
+            adamw_update_params(optimizer, network);
         }
     }
     fprint_epoch_stats(options->loss_output, network, &validation_ds, options->epoch_count);

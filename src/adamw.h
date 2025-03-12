@@ -20,6 +20,7 @@ typedef struct adamw {
     double v_correction_bias;
 
     size_t size;         // Number of parameters
+    double *param_delta;
     double *m;           // First moment vector
     double *v;           // Second moment vector
     double *v_hat;       // Maximum of v values for AMSGrad (if enabled)
@@ -30,6 +31,7 @@ typedef struct adamw {
 adamw* adamw_create(size_t size, double alpha, double beta1, double beta2, double epsilon, double weight_decay, bool amsgrad);
 void adamw_free(adamw *optimizer);
 
-void adamw_update_params(adamw *optimizer, neural_network *network, batch_buffer *buffer);
+void adamw_update_params(adamw *optimizer, neural_network *network);
+void adamw_merge_batch(adamw *optimizer, batch_buffer *buffers[], size_t buffer_count);
 
 #endif /* OPTIMIZER_H */

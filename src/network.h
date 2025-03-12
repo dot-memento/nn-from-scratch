@@ -24,9 +24,9 @@ typedef struct network_layout {
 
 typedef struct neural_network {
     size_t input_size;
-    size_t layer_count;
     size_t parameter_count;
     const loss_function *loss;
+    size_t layer_count;
     layer *layers[];
 } neural_network;
 

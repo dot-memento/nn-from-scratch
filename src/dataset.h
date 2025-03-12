@@ -11,4 +11,6 @@ typedef struct dataset {
     double *data;
 } dataset;
 
+void dataset_split(const dataset *ds, dataset *training_ds, dataset *validation_ds, double split_ratio);
+
 #endif // DATASET_H

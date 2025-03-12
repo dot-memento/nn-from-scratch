@@ -7,28 +7,23 @@ typedef struct neural_network neural_network;
 typedef struct layer layer;
 
 struct batch_buffer_layer_data {
-    const layer *parent;
-    double *input;
+    size_t input_size, output_size;
+    const double *input;
     double *preactivation_sums;
     double *activations;
-    union {
-        double *local_gradients;
-        double *grad_b;
-    };
-    double *grad_W;
+    double *local_gradients;
     double data[];
 };
 
 typedef struct batch_buffer {
-    neural_network *network;
+    size_t layer_count;
     struct batch_buffer_layer_data *layers[];
 } batch_buffer;
 
 batch_buffer* batch_buffer_create(neural_network *network);
 void batch_buffer_free(batch_buffer *buffer);
 
-void batch_buffer_forward(batch_buffer *buffer, double *input);
-void batch_buffer_backpropagate(batch_buffer *buffer);
-void batch_buffer_merge(batch_buffer *buffers[], size_t buffer_count);
+void batch_buffer_forward(const neural_network *network, batch_buffer *buffer, const double *input);
+void batch_buffer_backpropagate(const neural_network *network, batch_buffer *buffer);
 
 #endif // BATCH_BUFFER_H

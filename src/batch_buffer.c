@@ -8,49 +8,45 @@
 
 batch_buffer* batch_buffer_create(neural_network *network)
 {
-    batch_buffer *fragment = malloc(sizeof(batch_buffer) + network->layer_count * sizeof(struct batch_buffer_layer_data*));
-    fragment->network = network;
+    batch_buffer *buffer = malloc(sizeof(batch_buffer) + network->layer_count * sizeof(struct batch_buffer_layer_data*));
+    buffer->layer_count = network->layer_count;
     for (size_t i = 0; i < network->layer_count; ++i)
     {
         layer *current_layer = network->layers[i];
-        size_t input_size = current_layer->input_size;
         size_t output_size = current_layer->output_size;
 
         size_t data_block_size = output_size // Preactivation sums
             + output_size // Activations
-            + output_size // Local gradient | Bias gradients
-            + output_size * input_size; // Weight gradients
+            + output_size; // Local gradient
         struct batch_buffer_layer_data *layer_data = malloc(sizeof(struct batch_buffer_layer_data)
             + data_block_size * sizeof(double));
         
         double *preactivation_sums = layer_data->data;
         double *activations        = preactivation_sums + output_size;
         double *local_gradients    = activations        + output_size;
-        double *grad_W             = local_gradients    + output_size;
 
         *layer_data = (struct batch_buffer_layer_data) {
-            .parent = current_layer,
+            .input_size = current_layer->input_size,
+            .output_size = current_layer->output_size,
             .preactivation_sums = preactivation_sums,
             .activations = activations,
             .local_gradients = local_gradients,
-            .grad_W = grad_W
         };
         
-        fragment->layers[i] = layer_data;
+        buffer->layers[i] = layer_data;
     }
-    return fragment;
+    return buffer;
 }
 
 void batch_buffer_free(batch_buffer *buffer)
 {
-    for (size_t layer_idx = 0; layer_idx < buffer->network->layer_count; ++layer_idx)
+    for (size_t layer_idx = 0; layer_idx < buffer->layer_count; ++layer_idx)
         free(buffer->layers[layer_idx]);
     free(buffer);
 }
 
-void batch_buffer_forward(batch_buffer *buffer, double *input)
+void batch_buffer_forward(const neural_network *network, batch_buffer *buffer, const double *input)
 {
-    neural_network *network = buffer->network;
     for (size_t layer_idx = 0; layer_idx < network->layer_count; ++layer_idx)
     {
         layer *layer = network->layers[layer_idx];
@@ -69,9 +65,8 @@ void batch_buffer_forward(batch_buffer *buffer, double *input)
     }
 }
 
-void batch_buffer_backpropagate(batch_buffer *buffer)
+void batch_buffer_backpropagate(const neural_network *network, batch_buffer *buffer)
 {
-    neural_network *network = buffer->network;
     for (size_t layer_idx = network->layer_count - 1; layer_idx > 0; --layer_idx)
     {
         layer *next_layer = network->layers[layer_idx];
@@ -90,25 +85,5 @@ void batch_buffer_backpropagate(batch_buffer *buffer)
             }
             this_layer_data->local_gradients[neuron] = this_layer->activation_pair.derivative(this_layer_data->preactivation_sums[neuron]) * error_sum;
         }
-    }
-}
-
-void batch_buffer_merge(batch_buffer *buffers[], size_t buffer_count)
-{
-    batch_buffer *main_buffer = buffers[0];
-    for (size_t layer_idx = 0; layer_idx < buffers[0]->network->layer_count; ++layer_idx)
-    {
-        layer *output_layer = main_buffer->network->layers[layer_idx];
-        for (size_t neuron = 0; neuron < output_layer->output_size; ++neuron)
-            for (size_t input_idx = 0; input_idx < output_layer->input_size; ++input_idx)
-            {
-                double sum = 0;
-                for (size_t buffer_idx = 0; buffer_idx < buffer_count; ++buffer_idx)
-                {
-                    struct batch_buffer_layer_data *layer_buffer = buffers[buffer_idx]->layers[layer_idx];
-                    sum += layer_buffer->local_gradients[neuron] * layer_buffer->input[input_idx];
-                }
-                main_buffer->layers[layer_idx]->grad_W[neuron * output_layer->input_size + input_idx] = sum;
-            }
     }
 }
