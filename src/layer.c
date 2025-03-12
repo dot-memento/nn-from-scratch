@@ -29,6 +29,7 @@ layer* layer_create(size_t input_size, size_t output_size, initialization_functi
         .output_size = output_size,
         .initialization_function = initialization,
         .activation_pair = activation,
+        .parameter_count = output_size * input_size + output_size,
         .weights = weights,
         .biases = biases,
         .momentum = momentum,

@@ -9,6 +9,7 @@
 #include "batch_buffer.h"
 #include "dataset.h"
 #include "math_utils.h"
+#include "adamw.h"
 
 neural_network* network_create(network_layout *layout)
 {
@@ -20,19 +21,23 @@ neural_network* network_create(network_layout *layout)
     neural_network *network = malloc(sizeof(neural_network) + layer_count * sizeof(layer*));
     *network = (neural_network) {
         .input_size = layout->input_size,
-        .layer_count = layer_count
+        .layer_count = layer_count,
     };
 
     // Create and add layers using the layout.
+    size_t parameter_count = 0;
     for (size_t i = 0; i < layer_count; ++i)
     {
-        network->layers[i] = layer_create(
+        layer *new_layer = layer_create(
             (i > 0) ? network->layers[i-1]->output_size : network->input_size,
             layout->layers[i].neuron_count,
             layout->layers[i].initialization_function,
             layout->layers[i].activation_pair
         );
+        network->layers[i] = new_layer;
+        parameter_count += new_layer->parameter_count;
     }
+    network->parameter_count = parameter_count;
 
     return network;
 }
@@ -105,7 +110,7 @@ static void split_dataset(const dataset *ds, dataset *training_ds, dataset *vali
     };
 }
 
-void network_train(neural_network *network, dataset *ds, training_options options)
+void network_train(neural_network *network, adamw *optimizer, dataset *ds, training_options options)
 {
     if (network->layer_count == 0)
         return;
@@ -114,8 +119,6 @@ void network_train(neural_network *network, dataset *ds, training_options option
     batch_buffer **buffers = malloc(sizeof(batch_buffer*) * batch_size);
     for (size_t buffer_idx = 0; buffer_idx < batch_size; ++buffer_idx)
         buffers[buffer_idx] = batch_buffer_create(network);
-
-    size_t update_counter = 1;
 
     dataset *training_ds = malloc(sizeof(dataset));
     dataset *validation_ds = malloc(sizeof(dataset));
@@ -147,7 +150,7 @@ void network_train(neural_network *network, dataset *ds, training_options option
 
             batch_buffer_merge(buffers, batch_size);
 
-            batch_buffer_update_params(buffers[0], update_counter++);
+            adamw_update_params(optimizer, network, buffers[0]);
         }
     }
     fprint_epoch_stats(options.loss_output, network, validation_ds, options.epoch_count);

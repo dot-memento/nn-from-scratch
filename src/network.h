@@ -11,6 +11,7 @@
 typedef struct layer layer;
 typedef struct dataset dataset;
 typedef struct loss_function loss_function;
+typedef struct adamw adamw;
 
 typedef struct network_layout {
     size_t input_size;
@@ -24,6 +25,7 @@ typedef struct network_layout {
 typedef struct neural_network {
     size_t input_size;
     size_t layer_count;
+    size_t parameter_count;
     const loss_function *loss;
     layer *layers[];
 } neural_network;
@@ -42,6 +44,6 @@ typedef struct training_options {
     FILE *final_output;
 } training_options;
 
-void network_train(neural_network *network, dataset *ds, training_options options);
+void network_train(neural_network *network, adamw *optimizer, dataset *ds, training_options options);
 
 #endif // NETWORK_H

@@ -13,6 +13,7 @@ typedef struct layer {
     initialization_function initialization_function;
     activation_pair activation_pair;
 
+    size_t parameter_count;
     double *weights;
     double *biases;
 
