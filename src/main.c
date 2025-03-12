@@ -10,9 +10,8 @@
 #include "hyperparameters.h"
 #include "math_utils.h"
 
-dataset* dataset_create()
+void dataset_generate(dataset *ds)
 {
-    dataset *ds = malloc(sizeof(dataset));
     ds->entry_count = 512;
     ds->input_size = 1;
     ds->output_size = 1;
@@ -25,13 +24,11 @@ dataset* dataset_create()
         *entry_input = rand_double_in_range(-1, 1);
         *entry_output = 3 * (*entry_input) * exp(-9 * (*entry_input) * (*entry_input)) + sample_gaussian_distribution(0, 0.1);
     }
-    return ds;
 }
 
 void dataset_free(dataset *ds)
 {
     free(ds->data);
-    free(ds);
 }
 
 int main(int argc, char *argv[])
@@ -40,15 +37,16 @@ int main(int argc, char *argv[])
     srand(seed);
     fprintf(stderr, "Using seed: %u\n", seed);
 
-    dataset *ds = dataset_create();
+    dataset ds;
+    dataset_generate(&ds);
     
     network_layout layout = {
-        .input_size = ds->input_size,
+        .input_size = ds.input_size,
         .layers = (struct layer_layout[]) {
             {16,                initialization_he,  activation_swish},
             {16,                initialization_he,  activation_swish},
             {8,                 initialization_he,  activation_swish},
-            {ds->output_size,   initialization_xavier,  activation_linear},
+            {ds.output_size,   initialization_xavier,  activation_linear},
             {0}
         }
     };
@@ -69,7 +67,7 @@ int main(int argc, char *argv[])
         .final_output = final_output
     };
 
-    network_train(network, optimizer, ds, options);
+    network_train(network, optimizer, &ds, &options);
 
     fclose(loss);
     fclose(final_output);
@@ -77,7 +75,7 @@ int main(int argc, char *argv[])
     adamw_free(optimizer);
 
     network_free(network);
-    dataset_free(ds);
+    dataset_free(&ds);
     
     return 0;
 }

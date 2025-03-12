@@ -44,6 +44,6 @@ typedef struct training_options {
     FILE *final_output;
 } training_options;
 
-void network_train(neural_network *network, adamw *optimizer, dataset *ds, training_options options);
+void network_train(neural_network *network, adamw *optimizer, dataset *ds, const training_options *options);
 
 #endif // NETWORK_H

@@ -91,6 +91,19 @@ static void fprint_epoch_stats(FILE *file, neural_network *network, dataset *ds,
     fprintf(file, "%zu,%f\n", epoch_count, avg_loss);
 }
 
+static void fprint_network_output(FILE *file, neural_network *network, dataset *ds)
+{
+    fputs("input,expected,predicted\n", file);
+    for (size_t entry_idx = 0; entry_idx < ds->entry_count; ++entry_idx)
+    {
+        double *entry_input = ds->data + ds->entry_size * entry_idx;
+        double *entry_output = entry_input + ds->input_size;
+        double output;
+        network_infer(network, entry_input, &output);
+        fprintf(file, "%f,%f,%f\n", *entry_input, *entry_output, output);
+    }
+}
+
 static void split_dataset(const dataset *ds, dataset *training_ds, dataset *validation_ds, double split_ratio)
 {
     *training_ds = (dataset) {
@@ -110,34 +123,34 @@ static void split_dataset(const dataset *ds, dataset *training_ds, dataset *vali
     };
 }
 
-void network_train(neural_network *network, adamw *optimizer, dataset *ds, training_options options)
+void network_train(neural_network *network, adamw *optimizer, dataset *ds, const training_options *options)
 {
     if (network->layer_count == 0)
         return;
     
-    size_t batch_size = options.batch_size;
+    size_t batch_size = options->batch_size;
     batch_buffer **buffers = malloc(sizeof(batch_buffer*) * batch_size);
     for (size_t buffer_idx = 0; buffer_idx < batch_size; ++buffer_idx)
         buffers[buffer_idx] = batch_buffer_create(network);
 
-    dataset *training_ds = malloc(sizeof(dataset));
-    dataset *validation_ds = malloc(sizeof(dataset));
-    split_dataset(ds, training_ds, validation_ds, 0.8);
+    dataset training_ds;
+    dataset validation_ds;
+    split_dataset(ds, &training_ds, &validation_ds, 0.8);
 
-    if (options.loss_output != NULL)
-        fputs("epoch,loss,accuracy\n", options.loss_output);
-    for (size_t epoch_idx = 0; epoch_idx < options.epoch_count; ++epoch_idx)
+    if (options->loss_output != NULL)
+        fputs("epoch,loss,accuracy\n", options->loss_output);
+    for (size_t epoch_idx = 0; epoch_idx < options->epoch_count; ++epoch_idx)
     {
-        fprint_epoch_stats(options.loss_output, network, validation_ds, epoch_idx);
+        fprint_epoch_stats(options->loss_output, network, &validation_ds, epoch_idx);
         
-        shuffle(training_ds->data, training_ds->entry_count, training_ds->entry_size * sizeof(double));
-        for (size_t entry_idx = 0; entry_idx + batch_size <= training_ds->entry_count;)
+        shuffle(training_ds.data, training_ds.entry_count, training_ds.entry_size * sizeof(double));
+        for (size_t entry_idx = 0; entry_idx + batch_size <= training_ds.entry_count;)
         {
             
             for (size_t buffer_idx = 0; buffer_idx < batch_size; ++buffer_idx, ++entry_idx)
             {
-                double *entry_input = training_ds->data + training_ds->entry_size * entry_idx;
-                double *entry_output = entry_input + training_ds->input_size;
+                double *entry_input = training_ds.data + training_ds.entry_size * entry_idx;
+                double *entry_output = entry_input + training_ds.input_size;
 
                 batch_buffer *buffer = buffers[buffer_idx];
                 batch_buffer_forward(buffer, entry_input);
@@ -153,25 +166,12 @@ void network_train(neural_network *network, adamw *optimizer, dataset *ds, train
             adamw_update_params(optimizer, network, buffers[0]);
         }
     }
-    fprint_epoch_stats(options.loss_output, network, validation_ds, options.epoch_count);
+    fprint_epoch_stats(options->loss_output, network, &validation_ds, options->epoch_count);
 
     for (size_t buffer_idx = 0; buffer_idx < batch_size; ++buffer_idx)
         batch_buffer_free(buffers[buffer_idx]);
     free(buffers);
 
-    if (options.final_output != NULL)
-    {
-        fputs("input,expected,predicted\n", options.final_output);
-        for (size_t entry_idx = 0; entry_idx < validation_ds->entry_count; ++entry_idx)
-        {
-            double *entry_input = validation_ds->data + validation_ds->entry_size * entry_idx;
-            double *entry_output = entry_input + validation_ds->input_size;
-            double output;
-            network_infer(network, entry_input, &output);
-            fprintf(options.final_output, "%f,%f,%f\n", *entry_input, *entry_output, output);
-        }
-    }
-
-    free(training_ds);
-    free(validation_ds);
+    if (options->final_output != NULL)
+        fprint_network_output(options->final_output, network, &validation_ds);
 }
