@@ -15,6 +15,7 @@ typedef struct adamw adamw;
 
 typedef struct network_layout {
     size_t input_size;
+    size_t layer_count;
     struct layer_layout {
         size_t neuron_count;
         initialization_function initialization_function;
@@ -31,6 +32,7 @@ typedef struct neural_network {
 } neural_network;
 
 neural_network* network_create(network_layout *layout);
+
 void network_free(neural_network *network);
 
 neural_network* network_initialize(neural_network *network);

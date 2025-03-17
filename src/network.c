@@ -13,20 +13,16 @@
 
 neural_network* network_create(network_layout *layout)
 {
-    size_t layer_count = 0;
-    while (layout->layers[layer_count].neuron_count)
-        layer_count++;
-
     // Allocate memory for the network and initialize parameters.
-    neural_network *network = malloc(sizeof(neural_network) + layer_count * sizeof(layer*));
+    neural_network *network = malloc(sizeof(neural_network) + layout->layer_count * sizeof(layer*));
     *network = (neural_network) {
         .input_size = layout->input_size,
-        .layer_count = layer_count,
+        .layer_count = layout->layer_count,
     };
 
     // Create and add layers using the layout.
     size_t parameter_count = 0;
-    for (size_t i = 0; i < layer_count; ++i)
+    for (size_t i = 0; i < layout->layer_count; ++i)
     {
         layer *new_layer = layer_create(
             (i > 0) ? network->layers[i-1]->output_size : network->input_size,
@@ -93,15 +89,22 @@ static void fprint_epoch_stats(FILE *file, neural_network *network, dataset *ds,
 
 static void fprint_network_output(FILE *file, neural_network *network, dataset *ds)
 {
-    fputs("input,expected,predicted\n", file);
+    double *result = malloc(ds->output_size * sizeof(double));
     for (size_t entry_idx = 0; entry_idx < ds->entry_count; ++entry_idx)
     {
         double *entry_input = ds->data + ds->entry_size * entry_idx;
         double *entry_output = entry_input + ds->input_size;
-        double output;
-        network_infer(network, entry_input, &output);
-        fprintf(file, "%f,%f,%f\n", *entry_input, *entry_output, output);
+        network_infer(network, entry_input, result);
+
+        for (size_t input_field_idx = 0; input_field_idx < ds->input_size; ++input_field_idx)
+            fprintf(file, (input_field_idx > 0) ? ",%f" : "%f", entry_input[input_field_idx]);
+        for (size_t expcted_field_idx = 0; expcted_field_idx < ds->output_size; ++expcted_field_idx)
+            fprintf(file, ",%f", entry_output[expcted_field_idx]);
+        for (size_t output_field_idx = 0; output_field_idx < ds->output_size; ++output_field_idx)
+            fprintf(file, ",%f", result[output_field_idx]);
+        fputc('\n', file);
     }
+    free(result);
 }
 
 void network_train(neural_network *network, adamw *optimizer, dataset *ds, const training_options *options)

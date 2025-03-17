@@ -12,5 +12,6 @@ typedef struct dataset {
 } dataset;
 
 void dataset_split(const dataset *ds, dataset *training_ds, dataset *validation_ds, double split_ratio);
+int dataset_load_csv(const char *filename, dataset *ds);
 
 #endif // DATASET_H

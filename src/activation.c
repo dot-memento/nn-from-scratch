@@ -11,6 +11,7 @@ static double identity(double x)
 
 static double identity_derivative(double x)
 {
+    (void)x; // Unused
     return 1;
 }
 
