@@ -12,29 +12,46 @@
 #include "adamw.h"
 #include "hyperparameters.h"
 #include "math_utils.h"
+#include "constants.h"
+#include "errno.h"
 
-network_layout parse_json_for_layout(json_entry *json_root)
+network_layout parse_json_for_layout(json_value *json_root)
 {
-    network_layout layout;
+    network_layout layout = {0};
     
-    json_entry *input_size_entry = json_object_get(json_root, "input_size");
-    layout.input_size = (size_t)json_as_number(input_size_entry);
+    json_value *buffer_value;
+    double double_value = 1.0;
+    json_object_get(json_root, "input_size", &buffer_value);
+    json_number_get(buffer_value, &double_value);
+    layout.input_size = double_value;
 
-    json_entry *layers_entry = json_object_get(json_root, "layers");
-    layout.layer_count = json_array_count(layers_entry);
+    json_value *layers_entry;
+    json_object_get(json_root, "layers", &layers_entry);
+    json_array_length(layers_entry, &layout.layer_count);
 
     layout.layers = malloc((layout.layer_count) * sizeof(layer));
+    if (!layout.layers)
+    {
+        fprintf(stderr, PROGRAM_NAME": error: failed to allocate memory for layers\n");
+        exit(EXIT_FAILURE);
+    }
+
     for (size_t i = 0; i < layout.layer_count; ++i)
     {
-        json_entry *layer_entry = json_array_get(layers_entry, i);
-        //json_entry *type_entry = json_object_get(layer_entry, "type");
-        json_entry *units_entry = json_object_get(layer_entry, "units");
-        json_entry *activation_entry = json_object_get(layer_entry, "activation");
-        json_entry *init_entry = json_object_get(layer_entry, "init");
+        json_value *layer_entry;
+        if (json_array_get(layers_entry, i, &layer_entry))
+        {
+            fprintf(stderr, PROGRAM_NAME": error: failed to get layer entry\n");
+            exit(EXIT_FAILURE);
+        }
 
-        layout.layers[i].neuron_count = (size_t)json_as_number(units_entry);
+        json_object_get(layer_entry, "units", &buffer_value);
+        json_number_get(buffer_value, &double_value);
+        layout.layers[i].neuron_count = double_value;
 
-        const char *activation_name = json_as_string(activation_entry);
+        const char *activation_name = "Linear";
+        json_object_get(layer_entry, "activation", &buffer_value);
+        json_string_get(buffer_value, &activation_name);
         if (!strcmp(activation_name, "Swish"))
             layout.layers[i].activation_pair = activation_swish;
         else if (!strcmp(activation_name, "ReLU"))
@@ -46,7 +63,9 @@ network_layout parse_json_for_layout(json_entry *json_root)
         else
             layout.layers[i].activation_pair = activation_linear;
 
-        const char *initialization_name = json_as_string(init_entry);
+        const char *initialization_name = "He";
+        json_object_get(layer_entry, "init", &buffer_value);
+        json_string_get(buffer_value, &initialization_name);
         if (!strcmp(initialization_name, "He"))
             layout.layers[i].initialization_function = initialization_he;
         else //if (!strcmp(activation_name, "Xavier"))
@@ -56,45 +75,54 @@ network_layout parse_json_for_layout(json_entry *json_root)
     return layout;
 }
 
-adamw* parse_json_for_optimizer(neural_network *network, json_entry *json_root)
+adamw* parse_json_for_optimizer(neural_network *network, json_value *json_root)
 {
-    json_entry *optimizer_entry = json_object_get(json_root, "optimizer");
+    json_value *optimizer_entry, *buffer_value;
+    json_object_get(json_root, "optimizer", &optimizer_entry);
 
-    json_entry *learning_rate_entry = json_object_get(optimizer_entry, "learning_rate");
-    double learning_rate = learning_rate_entry ? json_as_number(learning_rate_entry) : LEARNING_RATE;
+    double learning_rate = LEARNING_RATE;
+    if (!json_object_get(optimizer_entry, "learning_rate", &buffer_value))
+        json_number_get(buffer_value, &learning_rate);
 
-    json_entry *beta1_entry = json_object_get(optimizer_entry, "beta1");
-    double beta1 = beta1_entry ? json_as_number(beta1_entry) : ADAMW_BETA_MOMENTUM;
+    double beta1 = ADAMW_BETA_MOMENTUM;
+    if (!json_object_get(optimizer_entry, "beta1", &buffer_value))
+        json_number_get(buffer_value, &beta1);
 
-    json_entry *beta2_entry = json_object_get(optimizer_entry, "beta2");
-    double beta2 = beta2_entry ? json_as_number(beta2_entry) : ADAMW_BETA_VARIANCE;
+    double beta2 = ADAMW_BETA_VARIANCE;
+    if (!json_object_get(optimizer_entry, "beta2", &buffer_value))
+        json_number_get(buffer_value, &beta2);
 
-    json_entry *epsilon_entry = json_object_get(optimizer_entry, "epsilon");
-    double epsilon = epsilon_entry ? json_as_number(epsilon_entry) : ADAMW_EPSILON;
+    double epsilon = ADAMW_EPSILON;
+    if (!json_object_get(optimizer_entry, "epsilon", &buffer_value))
+        json_number_get(buffer_value, &epsilon);
 
-    json_entry *weight_decay_entry = json_object_get(optimizer_entry, "weight_decay");
-    double weight_decay = weight_decay_entry ? json_as_number(weight_decay_entry) : ADAMW_WEIGHT_DECAY;
+    double weight_decay = ADAMW_WEIGHT_DECAY;
+    if (!json_object_get(optimizer_entry, "weight_decay", &buffer_value))
+        json_number_get(buffer_value, &weight_decay);
 
-    adamw *optimizer = adamw_create(network->parameter_count,
+    return adamw_create(
+        network->parameter_count,
         learning_rate,
         beta1,
         beta2,
         epsilon,
         weight_decay,
-        true);
-
-    return optimizer;
+        true
+    );
 }
 
-training_options parse_json_for_training_options(json_entry *json_root)
+training_options parse_json_for_training_options(json_value *json_root)
 {
-    json_entry *training_entry = json_object_get(json_root, "training");
+    json_value *training_entry, *buffer_value;
+    json_object_get(json_root, "training", &training_entry);
 
-    json_entry *batch_size_entry = json_object_get(training_entry, "batch_size");
-    size_t batch_size = batch_size_entry ? json_as_number(batch_size_entry) : 1;
-
-    json_entry *epoch_count_entry = json_object_get(training_entry, "epoch_count");
-    size_t epoch_count = epoch_count_entry ? json_as_number(epoch_count_entry) : 100;
+    double batch_size = 1.0;
+    if (!json_object_get(training_entry, "batch_size", &buffer_value))
+        json_number_get(buffer_value, &batch_size);
+        
+    double epoch_count = 100.0;
+    if (!json_object_get(training_entry, "epoch_count", &buffer_value))
+        json_number_get(buffer_value, &epoch_count);    
 
     return (training_options) {
         .batch_size = batch_size,
@@ -102,13 +130,39 @@ training_options parse_json_for_training_options(json_entry *json_root)
     };
 }
 
+const loss_function* parse_json_for_loss_function(json_value *json_root)
+{
+    json_value *loss_function_entry;
+    json_object_get(json_root, "loss_function", &loss_function_entry);
+
+    const char *loss_function_name = "MSE";
+    json_string_get(loss_function_entry, &loss_function_name);
+    if (!strcmp(loss_function_name, "CrossEntropy"))
+        return &loss_bce;
+    else
+        return &loss_mse;
+}
+
 int main(int argc, char *argv[])
 {
     unsigned int seed = (unsigned int)time(NULL);
     srand(seed);
-    fprintf(stderr, "Using seed: %u\n", seed);
-
-    json_entry *json_data = json_parse_file("config.json");
+    printf("Using seed: %u\n", seed);
+    
+    FILE *json_file = fopen("config.json", "r");
+    if (!json_file)
+    {
+        fprintf(stderr, PROGRAM_NAME": error: can't open 'config.json': %s\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    
+    json_value *json_data = NULL;
+    json_error error = json_parse_file(json_file, &json_data, NULL);
+    if (error)
+    {
+        fprintf(stderr, PROGRAM_NAME": error: failed to parse JSON file: %s\n", json_error_to_string(error));
+        exit(EXIT_FAILURE);
+    }
 
     network_layout layout = parse_json_for_layout(json_data);
 
@@ -117,17 +171,14 @@ int main(int argc, char *argv[])
         .output_size = layout.layers[layout.layer_count-1].neuron_count
     };
     if (dataset_load_csv("func_dataset.csv", &ds))
+    {
+        fprintf(stderr, PROGRAM_NAME": error: failed to load dataset\n");
         exit(EXIT_FAILURE);
+    }
 
     neural_network *network = network_create(&layout);
+    network->loss = parse_json_for_loss_function(json_data);
 
-    json_entry *loss_function_entry = json_object_get(json_data, "loss_function");
-    const char *loss_function_name = json_as_string(loss_function_entry);
-    if (!strcmp(loss_function_name, "CrossEntropy"))
-        network->loss = &loss_bce;
-    else
-        network->loss = &loss_mse;
-    
     network_initialize(network);
 
     adamw *optimizer = parse_json_for_optimizer(network, json_data);
@@ -141,7 +192,9 @@ int main(int argc, char *argv[])
 
     json_free(json_data);
 
+    printf("Starting training...\n");
     network_train(network, optimizer, &ds, &options);
+    printf("Training finished successfully\n");
 
     fclose(loss);
     fclose(final_output);

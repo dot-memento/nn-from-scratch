@@ -11,6 +11,7 @@ layer* layer_create(size_t input_size, size_t output_size, initialization_functi
 {
     size_t data_block_size = output_size * input_size + output_size;
     layer *new_layer = malloc(sizeof(layer) + data_block_size * sizeof(double));
+    if (!new_layer) return NULL;
 
     *new_layer = (layer) {
         .input_size = input_size,

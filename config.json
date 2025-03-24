@@ -1,0 +1,21 @@
+{
+    "input_size": 2,
+    "layers": [
+      {"type": "Dense", "units": 32, "activation": "Swish",  "init": "He"},
+      {"type": "Dense", "units": 32, "activation": "Swish",  "init": "He"},
+      {"type": "Dense", "units": 16, "activation": "Swish",  "init": "He"},
+      {"type": "Dense", "units": 1,  "activation": "Linear", "init": "Xavier"}
+    ],
+    "loss_function": "MSE",
+
+    "optimizer": {
+      "type": "AdamW",
+      "learning_rate": 0.002,
+      "weight_decay": 0.001
+    },
+
+    "training": {
+      "epoch_count": 50,
+      "batch_size": 4
+    }
+}

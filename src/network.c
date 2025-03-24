@@ -15,6 +15,8 @@ neural_network* network_create(network_layout *layout)
 {
     // Allocate memory for the network and initialize parameters.
     neural_network *network = malloc(sizeof(neural_network) + layout->layer_count * sizeof(layer*));
+    if (!network) return NULL;
+
     *network = (neural_network) {
         .input_size = layout->input_size,
         .layer_count = layout->layer_count,
@@ -73,6 +75,8 @@ static void fprint_epoch_stats(FILE *file, neural_network *network, dataset *ds,
     double total_loss = 0;
 
     double *result = malloc(ds->output_size * sizeof(double));
+    if (!result) return;
+
     for (size_t entry_idx = 0; entry_idx < ds->entry_count; ++entry_idx)
     {
         double *entry_input = ds->data + ds->entry_size * entry_idx;
@@ -90,6 +94,8 @@ static void fprint_epoch_stats(FILE *file, neural_network *network, dataset *ds,
 static void fprint_network_output(FILE *file, neural_network *network, dataset *ds)
 {
     double *result = malloc(ds->output_size * sizeof(double));
+    if (!result) return;
+    
     for (size_t entry_idx = 0; entry_idx < ds->entry_count; ++entry_idx)
     {
         double *entry_input = ds->data + ds->entry_size * entry_idx;

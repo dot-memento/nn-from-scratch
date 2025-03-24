@@ -96,6 +96,7 @@ int dataset_load_csv(const char *filename, dataset *ds)
     fseek(file, 0, SEEK_SET);
 
     double *data = malloc(entry_count * entry_size * sizeof(double));
+    if (!data) return 1;
 
     size_t offset = 0;
     char str_buffer[CSV_CELL_BUFFER_SIZE];

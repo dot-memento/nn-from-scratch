@@ -9,6 +9,8 @@
 batch_buffer* batch_buffer_create(neural_network *network)
 {
     batch_buffer *buffer = malloc(sizeof(batch_buffer) + network->layer_count * sizeof(struct batch_buffer_layer_data*));
+    if (!buffer) return NULL;
+
     buffer->layer_count = network->layer_count;
     for (size_t i = 0; i < network->layer_count; ++i)
     {

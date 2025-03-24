@@ -11,6 +11,7 @@
 adamw* adamw_create(size_t size, double alpha, double beta1, double beta2, double epsilon, double weight_decay, bool amsgrad)
 {
     adamw *optimizer = malloc(sizeof(adamw) + 4 * size * sizeof(double));
+    if (!optimizer) return NULL;
 
     *optimizer = (adamw) {
         .alpha = alpha,

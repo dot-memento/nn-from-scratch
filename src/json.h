@@ -1,247 +1,393 @@
+/**
+ * @file json.h
+ * @brief Header for a lightweight JSON parser and manipulation library.
+ *
+ * Simple library for parsing, accessing, and modifying JSON data.
+ * Supports all JSON types and provides a clean API for working with JSON structures.
+ *
+ * @author Michael Teixeira
+ * @copyright MIT License
+ * @see https://github.com/dot-memento/json-lib
+ */
+
 #ifndef JSON_H
 #define JSON_H
 
-#include <stdbool.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdio.h>
-
-
-/**
- * @brief Represents a JSON entry (value).
- */
-typedef struct json_entry json_entry;
+#include <stddef.h>
+#include <stdbool.h>
 
 /**
- * @brief Enumerates possible JSON entry types.
+ * @enum json_type
+ * @brief Represents the type of a JSON value.
  */
 typedef enum json_type {
-    JSON_NULL = 0, /** Represents a JSON null value. */
-    JSON_NUMBER,   /** Represents a JSON number (implemented as double). */
-    JSON_STRING,   /** Represents a JSON string. */
-    JSON_BOOL,     /** Represents a JSON boolean. */
-    JSON_ARRAY,    /** Represents a JSON array. */
-    JSON_OBJECT    /** Represents a JSON object. */
+    JSON_NULL,    /**< Null value */
+    JSON_BOOL,    /**< Boolean value */
+    JSON_NUMBER,  /**< Number value */
+    JSON_STRING,  /**< String value */
+    JSON_ARRAY,   /**< Array value */
+    JSON_OBJECT   /**< Object value */
 } json_type;
 
+/**
+ * @enum json_error
+ * @brief Represents error codes for JSON operations.
+ */
+typedef enum json_error {
+    JSON_SUCCESS,                  /**< Operation successful */
+    JSON_ERROR_ALLOCATION,         /**< Allocation error */
+    JSON_ERROR_NULL,               /**< Null pointer error */
+    JSON_ERROR_WRONG_TYPE,         /**< Type mismatch error */
+    JSON_ERROR_INDEX_OUT_OF_BOUNDS,/**< Array index out of bounds */
+    JSON_ERROR_KEY_NOT_FOUND,      /**< Object key not found */
+    JSON_ERROR_IO,                 /**< I/O error */
+    JSON_ERROR_INVALID_OPTIONS,    /**< Invalid option(s) */
+    JSON_ERROR_MAX_DEPTH,          /**< Maximum depth exceeded */
+    JSON_ERROR_NUMBER_FORMAT,      /**< Number format error */
+    JSON_ERROR_ESCAPE_SEQUENCE,    /**< Invalid escape sequence */
+    JSON_ERROR_UNICODE,            /**< Unicode error */
+    JSON_ERROR_BUFFER_TOO_SMALL,   /**< Buffer too small */
+    JSON_ERROR_CIRCULAR_REFERENCE, /**< Circular reference error */
+    JSON_ERROR_UNEXPECTED_CHARACTER, /**< Unexpected character error */
+    JSON_ERROR_UNEXPECTED_IDENTIFIER  /**< Unexpected identifier error */
+} json_error;
 
 /**
- * @brief Parses a JSON file and returns the root entry.
- * @param filename The path to the JSON file.
- * @return A pointer to the root \c json_entry, or \c NULL if parsing fails.
- * @note The returned \c json_entry must be freed using \c json_free().
+ * @struct json_value
+ * @brief Represents a JSON value.
  */
-json_entry* json_parse_file(const char *filename);
+typedef struct json_value json_value;
 
 /**
- * @brief Frees a JSON entry and all its children.
- * @param entry The \c json_entry to free.
+ * @struct json_error_info
+ * @brief Detailed information about JSON errors.
  */
-void json_free(json_entry *entry);
-
+typedef struct json_error_info {
+    json_error error;        /**< Error code */
+    unsigned int line;       /**< Line number at error */
+    unsigned int column;     /**< Column number at error */
+    char message[256];       /**< Error message */
+} json_error_info;
 
 /**
- * @brief Retrieves a value from a JSON object by key.
- * @param object The JSON object entry.
- * @param key The key to look for.
- * @return A pointer to the \c json_entry associated with the key, or \c NULL if not found or not an object.
- * @note The returned entry is owned by the object and should not be freed separately.
+ * @struct json_parse_options
+ * @brief Options for parsing JSON.
  */
-json_entry* json_object_get(const json_entry *object, const char *key);
+typedef struct json_parse_options {
+    json_error_info *error_info; /**< Optional pointer to error info for detailed errors (not allocated by the parser, has to be provided or NULL) */
+    size_t max_depth;            /**< Maximum allowed nesting depth (default is 1000) */
+} json_parse_options;
 
 /**
- * @brief Retrieves a value from a JSON array by index.
- * @param array The JSON array entry.
- * @param index The zero-based index.
- * @return A pointer to the \c json_entry at the given index, or \c NULL if out of bounds or not an array.
- * @note The returned entry is owned by the object and should not be freed separately.
+ * @struct json_format_options
+ * @brief Options for formatting (serializing) JSON output.
  */
-json_entry* json_array_get(const json_entry *array, size_t index);
+typedef struct json_format_options {
+    json_error_info *error_info; /**< Optional pointer to error info for detailed errors */
+    size_t indent_size;          /**< Number of spaces for indentation (compact if 0, default is 2) */
+    size_t max_depth;            /**< Maximum allowed nesting depth (default is 1000) */
+} json_format_options;
 
 /**
- * @brief Counts the number of entry in a JSON array.
- * @param array The JSON array entry.
- * @return The number of entry in the array, or \c 0 if not an array.
+ * @brief Converts a JSON error code to a string.
+ * @param code JSON error code.
+ * @return C-string representation of the error.
  */
-size_t json_array_count(const json_entry *array);
-
+const char* json_error_to_string(json_error code);
 
 /**
- * @brief Retrieves a number from a JSON entry.
- * @param entry The JSON entry.
- * @return The numeric value of the entry.
- * @note The behavior is undefined if the entry is not a number.
+ * @brief Creates a JSON null value.
+ * @param[out] out Pointer to store the created JSON value.
+ * @return json_error Status code.
  */
-double json_as_number(const json_entry *entry);
+json_error json_null_create(json_value **out);
 
 /**
- * @brief Tries to retrieve a number from a JSON entry.
- * @param entry The JSON entry.
- * @param[out] value Output parameter that receives the numerical value,
- *              or unchanged if the entry is not a number.
- * @return \c true if the entry is a number, \c false otherwise.
+ * @brief Creates a JSON boolean value.
+ * @param value Boolean value.
+ * @param[out] out Pointer to store the created JSON value.
+ * @return json_error Status code.
  */
-bool json_try_as_number(const json_entry *entry, double *value);
-
+json_error json_bool_create(bool value, json_value **out);
 
 /**
- * @brief Retrieves a string from a JSON entry.
- * @param entry The JSON entry.
- * @return A pointer to the string of the entry.
- * @note The behavior is undefined if the entry is not a string.
- * @note The returned string is owned by the entry and should not be freed separately.
+ * @brief Creates a JSON number value.
+ * @param value Number value.
+ * @param[out] out Pointer to store the created JSON value.
+ * @return json_error Status code.
  */
-const char* json_as_string(const json_entry *entry);
+json_error json_number_create(double value, json_value **out);
 
 /**
- * @brief Tries to retrieve a string from a JSON entry.
- * @param entry The JSON entry.
- * @param[out] string Output parameter that receives the string,
- *               or unchanged if the entry is not a string.
- * @return \c true if the entry is a string, \c false otherwise.
- * @note The returned string is owned by the entry and should not be freed separately.
+ * @brief Creates a JSON string value by copying the provided string.
+ * @param value C-string value.
+ * @param[out] out Pointer to store the created JSON value.
+ * @return json_error Status code.
  */
-bool json_try_as_string(const json_entry *entry, const char **string);
-
+json_error json_string_create(const char *value, json_value **out);
 
 /**
- * @brief Retrieves a boolean value from a JSON entry.
- * @param entry The JSON entry.
- * @return The boolean value of the entry.
- * @note The behavior is undefined if the entry is not a boolean.
+ * @brief Creates a JSON string value without copying the provided string.
+ * @param value C-string value, which becomes owned by the json_entry.
+ * @param[out] out Pointer to store the created JSON value.
+ * @return json_error Status code.
  */
-bool json_as_bool(const json_entry *entry);
+json_error json_string_create_nocopy(char *value, json_value **out);
 
 /**
- * @brief Tries to retrieve a boolean value from a JSON entry.
- * @param entry The JSON entry.
- * @param[out] value Output parameter that receives the boolean value,
- *              or unchanged if the entry is not a boolean.
- * @return \c true if the entry is a boolean, \c false otherwise.
+ * @brief Creates a JSON array.
+ * @param[out] out Pointer to store the created JSON array value.
+ * @return json_error Status code.
  */
-bool json_try_as_bool(const json_entry *entry, bool *value);
-
+json_error json_array_create(json_value **out);
 
 /**
- * @brief Retrieves the type of a JSON entry.
- * @param entry The JSON entry.
- * @return The json_type of the entry.
+ * @brief Creates a JSON object.
+ * @param[out] out Pointer to store the created JSON object value.
+ * @return json_error Status code.
  */
-json_type json_get_type(const json_entry *entry);
-
+json_error json_object_create(json_value **out);
 
 /**
- * @brief Creates a new, empty JSON entry.
- * @return A pointer to a newly allocated \c json_entry, or \c NULL if memory allocation fails.
- * @note The caller is responsible for freeing the entry using \c json_free()
- *       or by freeing a parent entry.
+ * @brief Creates a deep copy of a JSON value.
+ * @param entry JSON value to clone.
+ * @param[out] out Pointer to store the cloned JSON value.
+ * @return json_error Status code.
  */
-json_entry* json_new_entry();
+json_error json_clone(const json_value *value, json_value **out);
 
+/**
+ * @brief Frees the memory allocated for a JSON value.
+ * @param entry JSON value to free.
+ */
+void json_free(json_value *value);
+
+/**
+ * @brief Returns the type of a JSON value.
+ * @param entry JSON value.
+ * @param[out] out Pointer to store the JSON type.
+ * @return json_error Status code.
+ */
+json_error json_get_type(const json_value *value, json_type *out);
+
+/**
+ * @brief Gets the boolean value from a JSON boolean entry.
+ * @param entry JSON value.
+ * @param[out] out Pointer to store the boolean.
+ * @return json_error Status code.
+ */
+json_error json_bool_get(const json_value *value, bool *out);
+
+/**
+ * @brief Gets the numeric value from a JSON number entry.
+ * @param entry JSON value.
+ * @param[out] out Pointer to store the number.
+ * @return json_error Status code.
+ */
+json_error json_number_get(const json_value *value, double *out);
+
+/**
+ * @brief Gets the string from a JSON string entry.
+ * @param entry JSON value.
+ * @param[out] out Pointer to store the C-string.
+ * @return json_error Status code.
+ */
+json_error json_string_get(const json_value *value, const char **out);
+
+/**
+ * @brief Changes a JSON value to null.
+ * @param entry JSON value to change.
+ * @return json_error Status code.
+ */
+json_error json_set_as_null(json_value *value);
+
+/**
+ * @brief Changes a JSON value to a boolean.
+ * @param entry JSON value to change.
+ * @param value New boolean value.
+ * @return json_error Status code.
+ */
+json_error json_set_as_bool(json_value *value, bool new_value);
+
+/**
+ * @brief Changes a JSON value to a number.
+ * @param entry JSON value to change.
+ * @param value New numeric value.
+ * @return json_error Status code.
+ */
+json_error json_set_as_number(json_value *value, double new_value);
+
+/**
+ * @brief Changes a JSON value to a string (by copying).
+ * @param entry JSON value to change.
+ * @param string New C-string.
+ * @return json_error Status code.
+ */
+json_error json_set_as_string(json_value *value, const char *new_value);
+
+/**
+ * @brief Changes a JSON value to a string without copying.
+ * @param entry JSON value to change.
+ * @param string New C-string, which becomes owned by the json_entry.
+ * @return json_error Status code.
+ */
+json_error json_set_as_string_nocopy(json_value *value, char *new_value);
+
+/**
+ * @brief Changes a JSON value to an array.
+ * @param entry JSON value to change.
+ * @return json_error Status code.
+ */
+json_error json_set_as_array(json_value *value);
+
+/**
+ * @brief Changes a JSON value to an object.
+ * @param entry JSON value to change.
+ * @return json_error Status code.
+ */
+json_error json_set_as_object(json_value *value);
+
+/**
+ * @brief Returns the length of a JSON array.
+ * @param array JSON array value.
+ * @param[out] out Pointer to store the length.
+ * @return json_error Status code.
+ */
+json_error json_array_length(const json_value *array, size_t *out);
+
+/**
+ * @brief Gets an element from a JSON array.
+ * @param array JSON array value.
+ * @param index Zero-based index of the element.
+ * @param[out] out Pointer to store the JSON element.
+ * @return json_error Status code.
+ */
+json_error json_array_get(const json_value *array, size_t index, json_value **out);
+
+/**
+ * @brief Sets an element in a JSON array.
+ * @param array JSON array value.
+ * @param index Zero-based index of the element.
+ * @param value New JSON value.
+ * @return json_error Status code.
+ */
+json_error json_array_set(json_value *array, size_t index, json_value *value);
+
+/**
+ * @brief Appends a new element to a JSON array.
+ * @param array JSON array value.
+ * @param value New JSON value to append.
+ * @return json_error Status code.
+ */
+json_error json_array_append(json_value *array, json_value *value);
+
+/**
+ * @brief Inserts an element at a specific position in a JSON array.
+ * @param array JSON array value.
+ * @param index Index at which to insert the element.
+ * @param value New JSON value.
+ * @return json_error Status code.
+ */
+json_error json_array_insert(json_value *array, size_t index, json_value *value);
+
+/**
+ * @brief Removes an element from a JSON array.
+ * @param array JSON array value.
+ * @param index Zero-based index of the element to remove.
+ * @param[out] out Optional pointer to store the removed element,
+ *                 which becomes owned by the caller. If NULL, the element is freed.
+ * @return json_error Status code.
+ */
+json_error json_array_remove(json_value *array, size_t index, json_value **out);
+
+/**
+ * @brief Returns the number of key-value pairs in a JSON object.
+ * @param object JSON object value.
+ * @param[out] out Pointer to store the size.
+ * @return json_error Status code.
+ */
+json_error json_object_size(const json_value *object, size_t *out);
+
+/**
+ * @brief Checks if a JSON object contains a specific key.
+ * @param object JSON object value.
+ * @param key Key to search for.
+ * @param[out] out Pointer to store the result (true if exists).
+ * @return json_error Status code.
+ */
+json_error json_object_has_key(const json_value *object, const char *key, bool *out);
+
+/**
+ * @brief Gets a value from a JSON object by key.
+ * @param object JSON object value.
+ * @param key Key to search for.
+ * @param[out] out Pointer to store the JSON value.
+ * @return json_error Status code.
+ */
+json_error json_object_get(const json_value *object, const char *key, json_value **out);
 
 /**
  * @brief Sets a key-value pair in a JSON object.
- * @param object The JSON object entry.
- * @param key The key to set.
- * @param value The \c json_entry to associate with the key.
- * @return \c true on success, \c false on failure
- *         (e.g. if the object is not a JSON object or if memory allocation fails).
- * @note If the key already exists, the old value is freed and replaced with the new one.
+ * @param object JSON object value.
+ * @param key Key for the entry.
+ * @param value JSON value to associate with the key.
+ * @return json_error Status code.
  */
-bool json_object_set(json_entry *object, const char *key, json_entry *value);
+json_error json_object_set(json_value *object, const char *key, json_value *value);
 
 /**
- * @brief Removes a key-value pair from a JSON object and retrieve the removed value.
- * @param object The JSON object entry.
- * @param key The key to remove.
- * @return The removed \c json_entry, or \c NULL if the key was
- *         not found or the entry was not an object.
- * @note The caller becomes responsible for freeing the returned \c json_entry.
+ * @brief Removes a key-value pair from a JSON object.
+ * @param object JSON object value.
+ * @param key Key to remove.
+ * @param[out] out Optional pointer to store the removed value,
+ *                 which becomes owned by the caller. If NULL, the element is freed.
+ * @return json_error Status code.
  */
-json_entry* json_object_remove(json_entry *object, const char *key);
-
+json_error json_object_remove(json_value *object, const char *key, json_value **out);
 
 /**
- * @brief Appends an entry to a JSON array.
- * @param array The JSON array entry.
- * @param value The \c json_entry to append.
- * @return \c true on success, \c false on failure
- *         (e.g., if the entry is not a JSON array or if memory allocation fails).
+ * @brief Parses a JSON string.
+ * @param string C-string containing the JSON input.
+ * @param[out] value Pointer to store the parsed JSON value.
+ * @param options Optional parsing options (NULL for default values).
+ * @return json_error Status code.
  */
-bool json_array_append(json_entry *array, json_entry *value);
+json_error json_parse_string(const char *string, json_value **value, const json_parse_options *options);
 
 /**
- * @brief Inserts an entry into a JSON array at a specified index.
- * @param array The JSON array entry.
- * @param index The zero-based index to insert at.
- * @param value The \c json_entry to insert.
- * @return \c true on success, \c false on failure
- *         (e.g., if the entry is not a JSON array or if memory allocation fails).
+ * @brief Parses JSON input from a file.
+ * @param file File pointer containing the JSON input.
+ * @param[out] value Pointer to store the parsed JSON value.
+ * @param options Optional parsing options (NULL for default values).
+ * @return json_error Status code.
  */
-bool json_array_insert(json_entry *array, size_t index, json_entry *value);
+json_error json_parse_file(FILE *file, json_value **value, const json_parse_options *options);
 
 /**
- * @brief Removes a value from a JSON array at a specified index.
- * @param array The JSON array entry.
- * @param index The zero-based index to remove.
- * @return The removed \c json_entry, or \c NULL if the index was
- *         out of bounds or the entry was not an array.
- * @note The caller becomes responsible for freeing the returned \c json_entry if necessary.
+ * @brief Serializes a JSON value to a file.
+ * @param entry JSON value to serialize.
+ * @param file File pointer to write the JSON output.
+ * @param options Optional formatting options (NULL for default values).
+ * @return json_error Status code.
  */
-json_entry* json_array_remove(json_entry *array, size_t index);
-
+json_error json_serialize_to_file(const json_value *value, FILE *file, const json_format_options *options);
 
 /**
- * @brief Sets a JSON entry to null.
- * @param entry The JSON entry.
- * @note If the entry was previously an object, array, or string, its memory is freed.
+ * @brief Serializes a JSON value to a string.
+ * @param entry JSON value to serialize.
+ * @param[out] dst Pointer to store the dynamically allocated JSON string.
+ * @param options Optional formatting options (NULL for default values).
+ * @return json_error Status code.
  */
-void json_set_null(json_entry *entry);
+json_error json_serialize_to_string(const json_value *value, char **dst, const json_format_options *options);
 
-/**
- * @brief Sets a JSON entry to a numeric value.
- * @param entry The JSON entry.
- * @param value The numeric value to set.
- * @note If the entry was previously an object, array, or string, its memory is freed.
- */
-void json_set_number(json_entry *entry, double value);
-
-/**
- * @brief Sets a JSON entry to a string value.
- * @param entry The JSON entry.
- * @param string The string to set.
- * @return \c true on success, \c false on failure (e.g., if memory allocation fails).
- * @note If the entry was previously an object, array, or string, its memory is freed.
- * @note A copy of the string is stored, so the caller can safely free \p string.
- */
-bool json_set_string(json_entry *entry, const char *string);
-
-/**
- * @brief Sets a JSON entry to a boolean value.
- * @param entry The JSON entry.
- * @param value The boolean value to set.
- * @note If the entry was previously an object, array, or string, its memory is freed.
- */
-void json_set_bool(json_entry *entry, bool value);
-
-/**
- * @brief Converts a JSON entry into an empty object.
- * @param entry The JSON entry.
- * @note If the entry was previously an object, array, or string, its memory is freed.
- */
-void json_set_object(json_entry *entry);
-
-/**
- * @brief Converts a JSON entry into an empty array.
- * @param entry The JSON entry.
- * @note If the entry was previously an object, array, or string, its memory is freed.
- */
-void json_set_array(json_entry *entry);
-
-
-/**
- * @brief Writes a JSON entry to a file in a pretty-printed format.
- * @param file The file to print to.
- * @param entry The JSON entry to print.
- */
-void json_fprint(FILE *file, const json_entry *entry);
+#ifdef __cplusplus
+}
+#endif
 
 #endif // JSON_H
