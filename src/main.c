@@ -143,6 +143,16 @@ const loss_function* parse_json_for_loss_function(json_value *json_root)
         return &loss_mse;
 }
 
+const char* parse_json_for_dataset(json_value *json_root)
+{
+    json_value *dataset_entry;
+    json_object_get(json_root, "dataset", &dataset_entry);
+
+    const char *dataset_path = "dataset.csv";
+    json_string_get(dataset_entry, &dataset_path);
+    return dataset_path;
+}
+
 int main(int argc, char *argv[])
 {
     unsigned int seed = (unsigned int)time(NULL);
@@ -165,12 +175,13 @@ int main(int argc, char *argv[])
     }
 
     network_layout layout = parse_json_for_layout(json_data);
+    const char *dataset_path = parse_json_for_dataset(json_data);
 
     dataset ds = (dataset) {
         .input_size = layout.input_size,
         .output_size = layout.layers[layout.layer_count-1].neuron_count
     };
-    if (dataset_load_csv("func_dataset.csv", &ds))
+    if (dataset_load_csv(dataset_path, &ds))
     {
         fprintf(stderr, PROGRAM_NAME": error: failed to load dataset\n");
         exit(EXIT_FAILURE);

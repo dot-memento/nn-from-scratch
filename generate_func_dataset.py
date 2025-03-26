@@ -1,7 +1,8 @@
+#!/usr/bin/env python3
+
 import numpy as np
 import pandas as pd
 import math
-
 
 num_samples = 10000
 x_values = np.random.uniform(-1.0, 1.0, num_samples)

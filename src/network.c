@@ -67,6 +67,22 @@ void network_infer(neural_network *network, double *input, double *output)
     batch_buffer_free(buffer);
 }
 
+// Helper function to find the index of the maximum value in an array.
+static size_t argmax(double *array, size_t size)
+{
+    double max = array[0];
+    size_t max_idx = 0;
+    for (size_t i = 1; i < size; ++i)
+    {
+        if (array[i] > max)
+        {
+            max = array[i];
+            max_idx = i;
+        }
+    }
+    return max_idx;
+}
+
 static void fprint_epoch_stats(FILE *file, neural_network *network, dataset *ds, size_t epoch_count)
 {
     if (file == NULL)
@@ -75,6 +91,7 @@ static void fprint_epoch_stats(FILE *file, neural_network *network, dataset *ds,
     double total_loss = 0;
 
     double *result = malloc(ds->output_size * sizeof(double));
+    double accuracy = 0;
     if (!result) return;
 
     for (size_t entry_idx = 0; entry_idx < ds->entry_count; ++entry_idx)
@@ -84,11 +101,13 @@ static void fprint_epoch_stats(FILE *file, neural_network *network, dataset *ds,
 
         network_infer(network, entry_input, result);
         total_loss += network->loss->compute_loss(result, entry_output, ds->output_size);
+        if (argmax(entry_output, ds->output_size) == argmax(result, ds->output_size))
+            accuracy++;
     }
     free(result);
 
     double avg_loss = total_loss / ds->entry_count;
-    fprintf(file, "%zu,%f\n", epoch_count, avg_loss);
+    fprintf(file, "%zu,%f,%f\n", epoch_count, avg_loss, accuracy / ds->entry_count);
 }
 
 static void fprint_network_output(FILE *file, neural_network *network, dataset *ds)
@@ -156,6 +175,8 @@ void network_train(neural_network *network, adamw *optimizer, dataset *ds, const
 
             adamw_update_params(optimizer, network);
         }
+
+        printf("Epoch %zu done...\n", epoch_idx+1);
     }
     fprint_epoch_stats(options->loss_output, network, &validation_ds, options->epoch_count);
 

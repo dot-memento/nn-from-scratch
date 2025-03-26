@@ -1,21 +1,18 @@
 {
-    "input_size": 2,
+    "input_size": 784,
     "layers": [
-      {"type": "Dense", "units": 32, "activation": "Swish",  "init": "He"},
-      {"type": "Dense", "units": 32, "activation": "Swish",  "init": "He"},
-      {"type": "Dense", "units": 16, "activation": "Swish",  "init": "He"},
-      {"type": "Dense", "units": 1,  "activation": "Linear", "init": "Xavier"}
+      {"type": "Dense", "units": 10,  "activation": "Sigmoid", "init": "Xavier"}
     ],
-    "loss_function": "MSE",
+    "loss_function": "CrossEntropy",
 
+    "dataset": "mnist_train_one_hot.csv",
     "optimizer": {
       "type": "AdamW",
       "learning_rate": 0.002,
       "weight_decay": 0.001
     },
-
     "training": {
-      "epoch_count": 50,
+      "epoch_count": 5,
       "batch_size": 4
     }
 }
