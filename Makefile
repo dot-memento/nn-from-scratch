@@ -5,13 +5,13 @@
 # fichiers sources
 SRCDIR = src
 # nom de l'executable produit
-OUTPUT = LeCNN
+OUTPUT = UnNet
 # compilateur utilisé
 CC = gcc
 # options de compilation pour la version de production
-PRODFLAGS = -Ofast -flto -std=c11 -Wall -pedantic
+PRODFLAGS = -Ofast -flto -std=c11 -Wall -Wextra -pedantic
 # options de compilation pour la version de debug
-DEBUGFLAGS = -g -std=c11 -Wall -pedantic
+DEBUGFLAGS = -g -std=c11 -Wall -Wextra -pedantic
 
 # ==============================
 # ===== Makefile internals =====

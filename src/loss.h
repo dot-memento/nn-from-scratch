@@ -13,6 +13,7 @@ typedef struct loss_function {
 
 extern const loss_function loss_bce;
 extern const loss_function loss_bce_sigmoid;
+extern const loss_function loss_cce_softmax;
 extern const loss_function loss_mse;
 
 #endif // LOSS_H

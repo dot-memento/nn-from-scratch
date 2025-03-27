@@ -15,7 +15,7 @@
 #include "constants.h"
 #include "errno.h"
 
-network_layout parse_json_for_layout(json_value *json_root)
+network_layout parse_json_for_layout(const json_value *json_root)
 {
     network_layout layout = {0};
     
@@ -60,6 +60,8 @@ network_layout parse_json_for_layout(json_value *json_root)
             layout.layers[i].activation_pair = activation_tanh;
         else if (!strcmp(activation_name, "Sigmoid"))
             layout.layers[i].activation_pair = activation_sigmoid;
+        else if (!strcmp(activation_name, "Softmax"))
+            layout.layers[i].activation_pair = activation_softmax;
         else
             layout.layers[i].activation_pair = activation_linear;
 
@@ -75,7 +77,7 @@ network_layout parse_json_for_layout(json_value *json_root)
     return layout;
 }
 
-adamw* parse_json_for_optimizer(neural_network *network, json_value *json_root)
+adamw* parse_json_for_optimizer(const neural_network *network, const json_value *json_root)
 {
     json_value *optimizer_entry, *buffer_value;
     json_object_get(json_root, "optimizer", &optimizer_entry);
@@ -111,7 +113,7 @@ adamw* parse_json_for_optimizer(neural_network *network, json_value *json_root)
     );
 }
 
-training_options parse_json_for_training_options(json_value *json_root)
+training_parameters parse_json_for_training_options(const json_value *json_root, const network_layout *layout)
 {
     json_value *training_entry, *buffer_value;
     json_object_get(json_root, "training", &training_entry);
@@ -122,35 +124,52 @@ training_options parse_json_for_training_options(json_value *json_root)
         
     double epoch_count = 100.0;
     if (!json_object_get(training_entry, "epoch_count", &buffer_value))
-        json_number_get(buffer_value, &epoch_count);    
+        json_number_get(buffer_value, &epoch_count);  
+        
+    const char *train_dataset_path = "train_dataset.csv";
+    if (!json_object_get(training_entry, "train_dataset", &buffer_value))
+        json_string_get(buffer_value, &train_dataset_path);
 
-    return (training_options) {
+    const char *test_dataset_path = "test_dataset.csv";
+    if (!json_object_get(training_entry, "test_dataset", &buffer_value))
+        json_string_get(buffer_value, &test_dataset_path);
+
+    dataset train_ds = (dataset) {
+        .input_size = layout->input_size,
+        .output_size = layout->layers[layout->layer_count-1].neuron_count
+    };
+    dataset test_ds = train_ds;
+
+    if (dataset_load_csv(train_dataset_path, &train_ds) ||
+        dataset_load_csv(test_dataset_path, &test_ds))
+    {
+        fprintf(stderr, PROGRAM_NAME": error: failed to load training dataset\n");
+        exit(EXIT_FAILURE);
+    }
+
+    return (training_parameters) {
+        .train_dataset = train_ds,
+        .test_dataset = test_ds,
         .batch_size = batch_size,
-        .epoch_count = epoch_count
+        .epoch_count = epoch_count,
+        .loss_output = NULL,
+        .final_output = NULL
     };
 }
 
-const loss_function* parse_json_for_loss_function(json_value *json_root)
+const loss_function* parse_json_for_loss_function(const json_value *json_root)
 {
     json_value *loss_function_entry;
     json_object_get(json_root, "loss_function", &loss_function_entry);
 
     const char *loss_function_name = "MSE";
     json_string_get(loss_function_entry, &loss_function_name);
-    if (!strcmp(loss_function_name, "CrossEntropy"))
+    if (!strcmp(loss_function_name, "BinaryCrossEntropy"))
         return &loss_bce;
+    if (!strcmp(loss_function_name, "CategoricalCrossEntropy"))
+        return &loss_cce_softmax;
     else
         return &loss_mse;
-}
-
-const char* parse_json_for_dataset(json_value *json_root)
-{
-    json_value *dataset_entry;
-    json_object_get(json_root, "dataset", &dataset_entry);
-
-    const char *dataset_path = "dataset.csv";
-    json_string_get(dataset_entry, &dataset_path);
-    return dataset_path;
 }
 
 int main(int argc, char *argv[])
@@ -175,17 +194,6 @@ int main(int argc, char *argv[])
     }
 
     network_layout layout = parse_json_for_layout(json_data);
-    const char *dataset_path = parse_json_for_dataset(json_data);
-
-    dataset ds = (dataset) {
-        .input_size = layout.input_size,
-        .output_size = layout.layers[layout.layer_count-1].neuron_count
-    };
-    if (dataset_load_csv(dataset_path, &ds))
-    {
-        fprintf(stderr, PROGRAM_NAME": error: failed to load dataset\n");
-        exit(EXIT_FAILURE);
-    }
 
     neural_network *network = network_create(&layout);
     network->loss = parse_json_for_loss_function(json_data);
@@ -197,14 +205,14 @@ int main(int argc, char *argv[])
     FILE *loss = fopen("loss.csv", "w");
     FILE *final_output = fopen("scatter.csv", "w");
 
-    training_options options = parse_json_for_training_options(json_data);
-    options.loss_output = loss;
-    options.final_output = final_output;
+    training_parameters train_param = parse_json_for_training_options(json_data, &layout);
+    train_param.loss_output = loss;
+    train_param.final_output = final_output;
 
     json_free(json_data);
 
     printf("Starting training...\n");
-    network_train(network, optimizer, &ds, &options);
+    network_train(network, optimizer, &train_param);
     printf("Training finished successfully\n");
 
     fclose(loss);
@@ -214,7 +222,8 @@ int main(int argc, char *argv[])
 
     network_free(network);
 
-    free(ds.data);
+    free(train_param.train_dataset.data);
+    free(train_param.test_dataset.data);
     
     return 0;
 }

@@ -7,9 +7,9 @@
 
 #include "initialization.h"
 #include "activation.h"
+#include "dataset.h"
 
 typedef struct layer layer;
-typedef struct dataset dataset;
 typedef struct loss_function loss_function;
 typedef struct adamw adamw;
 
@@ -39,13 +39,15 @@ neural_network* network_initialize(neural_network *network);
 
 void network_infer(neural_network *network, double *input, double *output);
 
-typedef struct training_options {
+typedef struct training_parameters {
+    dataset train_dataset;
+    dataset test_dataset;
     size_t epoch_count;
     size_t batch_size;
     FILE *loss_output;
     FILE *final_output;
-} training_options;
+} training_parameters;
 
-void network_train(neural_network *network, adamw *optimizer, dataset *ds, const training_options *options);
+void network_train(neural_network *network, adamw *optimizer, training_parameters *options);
 
 #endif // NETWORK_H

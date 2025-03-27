@@ -132,7 +132,7 @@ static void fprint_network_output(FILE *file, neural_network *network, dataset *
     free(result);
 }
 
-void network_train(neural_network *network, adamw *optimizer, dataset *ds, const training_options *options)
+void network_train(neural_network *network, adamw *optimizer, training_parameters *options)
 {
     if (network->layer_count == 0)
         return;
@@ -142,23 +142,22 @@ void network_train(neural_network *network, adamw *optimizer, dataset *ds, const
     for (size_t buffer_idx = 0; buffer_idx < batch_size; ++buffer_idx)
         buffers[buffer_idx] = batch_buffer_create(network);
 
-    dataset training_ds;
-    dataset validation_ds;
-    dataset_split(ds, &training_ds, &validation_ds, 0.8);
+    dataset *training_ds = &options->train_dataset;
+    dataset *validation_ds = &options->test_dataset;
 
     if (options->loss_output != NULL)
         fputs("epoch,loss,accuracy\n", options->loss_output);
     for (size_t epoch_idx = 0; epoch_idx < options->epoch_count; ++epoch_idx)
     {
-        fprint_epoch_stats(options->loss_output, network, &validation_ds, epoch_idx);
+        fprint_epoch_stats(options->loss_output, network, validation_ds, epoch_idx);
         
-        shuffle(training_ds.data, training_ds.entry_count, training_ds.entry_size * sizeof(double));
-        for (size_t entry_idx = 0; entry_idx + batch_size <= training_ds.entry_count;)
+        shuffle(training_ds->data, training_ds->entry_count, training_ds->entry_size * sizeof(double));
+        for (size_t entry_idx = 0; entry_idx + batch_size <= training_ds->entry_count;)
         {
             for (size_t buffer_idx = 0; buffer_idx < batch_size; ++buffer_idx, ++entry_idx)
             {
-                double *entry_input = training_ds.data + training_ds.entry_size * entry_idx;
-                double *entry_output = entry_input + training_ds.input_size;
+                double *entry_input = training_ds->data + training_ds->entry_size * entry_idx;
+                double *entry_output = entry_input + training_ds->input_size;
 
                 batch_buffer *buffer = buffers[buffer_idx];
                 batch_buffer_forward(network, buffer, entry_input);
@@ -178,12 +177,12 @@ void network_train(neural_network *network, adamw *optimizer, dataset *ds, const
 
         printf("Epoch %zu done...\n", epoch_idx+1);
     }
-    fprint_epoch_stats(options->loss_output, network, &validation_ds, options->epoch_count);
+    fprint_epoch_stats(options->loss_output, network, validation_ds, options->epoch_count);
 
     for (size_t buffer_idx = 0; buffer_idx < batch_size; ++buffer_idx)
         batch_buffer_free(buffers[buffer_idx]);
     free(buffers);
 
     if (options->final_output != NULL)
-        fprint_network_output(options->final_output, network, &validation_ds);
+        fprint_network_output(options->final_output, network, validation_ds);
 }

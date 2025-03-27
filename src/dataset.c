@@ -119,6 +119,7 @@ int dataset_load_csv(const char *filename, dataset *ds)
         if (*final_char != '\0')
         {
             fprintf(stderr, PROGRAM_NAME": error: can't convert '%s' to a number\n", str_buffer);
+            free(data);
             return 1;
         }
         

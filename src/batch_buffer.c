@@ -61,8 +61,8 @@ void batch_buffer_forward(const neural_network *network, batch_buffer *buffer, c
             for (size_t input_idx = 0; input_idx < layer->input_size; ++input_idx)
                 sum = fma(layer->weights[offset + input_idx], input[input_idx], sum);
             layer_data->preactivation_sums[neuron] = sum;
-            layer_data->activations[neuron] = layer->activation_pair.base(sum);
         }
+        layer->activation_pair.base(layer_data);
         input = layer_data->activations;
     }
 }
@@ -85,7 +85,8 @@ void batch_buffer_backpropagate(const neural_network *network, batch_buffer *buf
                 double d = next_layer_data->local_gradients[output_idx];
                 error_sum = fma(d, w, error_sum);
             }
-            this_layer_data->local_gradients[neuron] = this_layer->activation_pair.derivative(this_layer_data->preactivation_sums[neuron]) * error_sum;
+            this_layer_data->local_gradients[neuron] = error_sum;
         }
+        this_layer->activation_pair.derivative(this_layer_data);
     }
 }
