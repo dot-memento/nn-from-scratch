@@ -1,20 +1,26 @@
 {
+  "random_seed": null,
+  "network": {
     "input_size": 784,
     "layers": [
-      {"type": "Dense", "units": 300, "activation": "Swish", "init": "He"},
-      {"type": "Dense", "units": 100, "activation": "Swish", "init": "He"},
+      {"type": "Dense", "units": 100, "activation": "ReLU", "init": "He"},
       {"type": "Dense", "units": 10, "activation": "Softmax", "init": "Xavier"}
     ],
-    "loss_function": "CategoricalCrossEntropy",
+    "loss_function": "CategoricalCrossEntropy"
+  },
+  "training": {
     "optimizer": {
       "type": "AdamW",
       "learning_rate": 0.001,
       "weight_decay": 0.0005
     },
-    "training": {
-      "train_dataset": "mnist_train_one_hot.csv",
-      "test_dataset": "mnist_test_one_hot.csv",
-      "epoch_count": 10,
-      "batch_size": 32
-    }
+    "train_dataset": "mnist_train_one_hot.csv",
+    "test_dataset": "mnist_test_one_hot.csv",
+    "validation": {
+      "use_validation": true,
+      "validation_split": 0.1
+    },
+    "epoch_count": 20,
+    "batch_size": 32
+  }
 }

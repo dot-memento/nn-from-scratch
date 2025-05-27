@@ -5,7 +5,7 @@
 # fichiers sources
 SRCDIR = src
 # nom de l'executable produit
-OUTPUT = UnNet
+OUTPUT = network
 # compilateur utilisé
 CC = gcc
 # options de compilation pour la version de production

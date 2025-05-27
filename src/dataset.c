@@ -37,7 +37,7 @@ int dataset_load_csv(const char *filename, dataset *ds)
     if (!file)
     {
         fprintf(stderr, PROGRAM_NAME": error: can't open '%s': %s\n", filename, strerror(errno));
-        return 1;
+        return true;
     }
 
     size_t entry_size = SIZE_MAX;
@@ -62,7 +62,7 @@ int dataset_load_csv(const char *filename, dataset *ds)
             else if (entry_size != current_entry_size)
             {
                 fprintf(stderr, PROGRAM_NAME": error: entry %zu in '%s' doesn't have %zu fields\n", entry_count, filename, entry_size);
-                return 1;
+                return true;
             }
             entry_count++;
             current_entry_size = 1;
@@ -80,13 +80,13 @@ int dataset_load_csv(const char *filename, dataset *ds)
         else if (current_entry_size != 1 && entry_size != current_entry_size)
         {
             fprintf(stderr, PROGRAM_NAME": error: entry %zu in '%s' doesn't have %zu fields\n", entry_count, filename, entry_size);
-            return 1;
+            return true;
         }
     }
     else if(entry_count == 0)
     {
         fprintf(stderr, PROGRAM_NAME": error: file '%s' doesn't have any entry\n", filename);
-        return 1;
+        return true;
     }
 
     ds->entry_count = entry_count;
@@ -96,7 +96,7 @@ int dataset_load_csv(const char *filename, dataset *ds)
     fseek(file, 0, SEEK_SET);
 
     double *data = malloc(entry_count * entry_size * sizeof(double));
-    if (!data) return 1;
+    if (!data) return true;
 
     size_t offset = 0;
     char str_buffer[CSV_CELL_BUFFER_SIZE];
@@ -112,6 +112,10 @@ int dataset_load_csv(const char *filename, dataset *ds)
 
             str_buffer[i++] = (char)c;
         }
+        
+        if (c == EOF && i == 0)
+            break; // End of file reached without any data
+
         str_buffer[i++] = '\0';
         
         char *final_char;
@@ -120,7 +124,7 @@ int dataset_load_csv(const char *filename, dataset *ds)
         {
             fprintf(stderr, PROGRAM_NAME": error: can't convert '%s' to a number\n", str_buffer);
             free(data);
-            return 1;
+            return true;
         }
         
         data[offset++] = number;
@@ -130,5 +134,5 @@ int dataset_load_csv(const char *filename, dataset *ds)
 
     fclose(file);
 
-    return 0;
+    return false;
 }

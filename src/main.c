@@ -17,16 +17,19 @@
 
 network_layout parse_json_for_layout(const json_value *json_root)
 {
+    json_value *network_entry = NULL;
+    json_object_get(json_root, "network", &network_entry);
+
     network_layout layout = {0};
     
-    json_value *buffer_value;
+    json_value *buffer_value = NULL;
     double double_value = 1.0;
-    json_object_get(json_root, "input_size", &buffer_value);
+    json_object_get(network_entry, "input_size", &buffer_value);
     json_number_get(buffer_value, &double_value);
     layout.input_size = double_value;
 
-    json_value *layers_entry;
-    json_object_get(json_root, "layers", &layers_entry);
+    json_value *layers_entry = NULL;
+    json_object_get(network_entry, "layers", &layers_entry);
     json_array_length(layers_entry, &layout.layer_count);
 
     layout.layers = malloc((layout.layer_count) * sizeof(layer));
@@ -38,7 +41,7 @@ network_layout parse_json_for_layout(const json_value *json_root)
 
     for (size_t i = 0; i < layout.layer_count; ++i)
     {
-        json_value *layer_entry;
+        json_value *layer_entry = NULL;
         if (json_array_get(layers_entry, i, &layer_entry))
         {
             fprintf(stderr, PROGRAM_NAME": error: failed to get layer entry\n");
@@ -79,8 +82,11 @@ network_layout parse_json_for_layout(const json_value *json_root)
 
 adamw* parse_json_for_optimizer(const neural_network *network, const json_value *json_root)
 {
-    json_value *optimizer_entry, *buffer_value;
-    json_object_get(json_root, "optimizer", &optimizer_entry);
+    json_value *training_entry = NULL;
+    json_object_get(json_root, "training", &training_entry);
+
+    json_value *optimizer_entry = NULL, *buffer_value = NULL;
+    json_object_get(training_entry, "optimizer", &optimizer_entry);
 
     double learning_rate = LEARNING_RATE;
     if (!json_object_get(optimizer_entry, "learning_rate", &buffer_value))
@@ -115,7 +121,7 @@ adamw* parse_json_for_optimizer(const neural_network *network, const json_value 
 
 training_parameters parse_json_for_training_options(const json_value *json_root, const network_layout *layout)
 {
-    json_value *training_entry, *buffer_value;
+    json_value *training_entry = NULL, *buffer_value = NULL;
     json_object_get(json_root, "training", &training_entry);
 
     double batch_size = 1.0;
@@ -159,8 +165,11 @@ training_parameters parse_json_for_training_options(const json_value *json_root,
 
 const loss_function* parse_json_for_loss_function(const json_value *json_root)
 {
-    json_value *loss_function_entry;
-    json_object_get(json_root, "loss_function", &loss_function_entry);
+    json_value *network_entry = NULL;
+    json_object_get(json_root, "network", &network_entry);
+
+    json_value *loss_function_entry = NULL;
+    json_object_get(network_entry, "loss_function", &loss_function_entry);
 
     const char *loss_function_name = "MSE";
     json_string_get(loss_function_entry, &loss_function_name);
@@ -178,10 +187,14 @@ int main(int argc, char *argv[])
     srand(seed);
     printf("Using seed: %u\n", seed);
     
-    FILE *json_file = fopen("config.json", "r");
+    const char *file_path = "config.json";
+    if (argc > 1)
+        file_path = argv[1];
+
+    FILE *json_file = fopen(file_path, "r");
     if (!json_file)
     {
-        fprintf(stderr, PROGRAM_NAME": error: can't open 'config.json': %s\n", strerror(errno));
+        fprintf(stderr, PROGRAM_NAME": error: can't open '%s': %s\n", file_path, strerror(errno));
         exit(EXIT_FAILURE);
     }
     
