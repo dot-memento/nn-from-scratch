@@ -1,5 +1,3 @@
-# 🚧 Work In Progress: quite clunky and unstable 🚧
-
 # Neural Networks from Scratch in C 
 
 This repository contains a lightweight neural network implementation in C. It provides a framework for creating, training, and evaluating neural networks with configurable architectures through JSON configuration.
